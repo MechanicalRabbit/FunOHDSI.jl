@@ -62,7 +62,10 @@ FromConcept() =
     From(concept) |>
     Where(Fun."is null"(Get.invalid_reason))
 
-FromConcept(c) =
+FromConcept(c; exclude = nothing) =
+    FromConcept(c, exclude)
+
+FromConcept(c, ::Nothing) =
     FromConcept() |>
     Join(:descendant_x_ancestor => concept_ancestor,
          Get.concept_id .== Get.descendant_x_ancestor.descendant_concept_id) |>
@@ -78,7 +81,7 @@ FromConcept(ic, ec) =
     Where(Fun."is null"(Get.excluded.concept_id))
 
 Infarction =
-    FromConcept(myocardial_infarction, old_myocardial_infarction)
+    FromConcept(myocardial_infarction, exclude = old_myocardial_infarction)
 
 run(Infarction)
 
@@ -188,20 +191,20 @@ InfarctionConditionDuringAcuteVisit |>
 Where(Get.person_id .== selected_person_id) |>
 run
 
-CollapseIndexDate(days) =
-    Define(:end_date => Get.end_date .+ days) |>
-    Partition(Get.person_id, order_by=[Get.start_date]) |>
-    Define(:boundary => Agg.Lag(Get.end_date)) |>
+CollapseIntervals(gap) =
+    Define(:end_date => Get.end_date .+ gap) |>
+    Partition(Get.person_id, order_by = [Get.start_date]) |>
+    Define(:boundary => Agg.lag(Get.end_date)) |>
     Define(:bump => Fun.case(Get.start_date .<= Get.boundary, 0, 1)) |>
-    Partition(Get.person_id, order_by=[Get.start_date]) |>
+    Partition(Get.person_id, order_by = [Get.start_date]) |>
     Define(:group => Agg.sum(Get.bump)) |>
     Group(Get.person_id, Get.group) |>
     Define(:start_date => Agg.min(Get.start_date),
-           :end_date => Agg.max(Get.end_date) .- days)
+           :end_date => Agg.max(Get.end_date) .- gap)
 
 InfarctionCohort =
     InfarctionConditionDuringAcuteVisit |>
-    CollapseIndexDate(180) |>
+    CollapseIntervals(180) |>
     Select(Get.person_id, Get.start_date, Get.end_date)
 
 InfarctionCohort |>
