@@ -1,0 +1,13 @@
+[CirceR]
+git-tree-sha1 = "0893e1e2553d6d6d5a818a21521981d59b9e0bc5"
+
+    [[CirceR.download]]
+    url = "https://github.com/OHDSI/CirceR/archive/refs/tags/v1.0.0.tar.gz"
+    sha256 = "fadc82dedbfae745ee181cedd7345369f6d9dd0b65402cdc9a7510294dfc7046"
+
+[SqlRender]
+git-tree-sha1 = "05eb764d317dc34125b01e72f86885962b3ba8a9"
+
+    [[SqlRender.download]]
+    url = "https://github.com/OHDSI/SqlRender/archive/refs/tags/v1.7.0.tar.gz"
+    sha256 = "83820f2ed53ace0a84e6552fafdebfcdf3a375407f28cbb46f409da2fc1b6dca"

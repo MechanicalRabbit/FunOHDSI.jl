@@ -5,3 +5,4 @@ version = "0.1.0"
 
 [deps]
 FunSQL = "cf6cc811-59f4-4a10-b258-a8547a8f6407"
+JavaCall = "494afd89-becb-516b-aafa-70d2670c0337"
