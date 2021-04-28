@@ -49,8 +49,83 @@ function unpack_vector!(data::Dict, key::String, type::Type)
     return retval
 end
 
-struct Criteria
-    Criteria(data::Dict) = new()
+struct DateRange
+    value::String
+    op::String
+    extent::String
+
+    DateRange(data::Dict) = new()
+
+end
+
+struct TextFilter
+    text::String
+    op::String
+
+    TextFilter(data::Dict) = new()
+end
+
+struct NumericRange
+    value::Number
+    op::String
+    extent::Number
+
+    NumericRange(data::Dict) = new()
+end
+
+struct Concept
+    Concept(data::Dict) = new()
+end
+
+abstract type Criteria end;
+
+struct UnknownCriteria <: Criteria
+    UnknownCriteria(data::Dict) = new()
+end
+
+struct ConditionOccurrence <: Criteria
+    age::Union{NumericRange, Nothing}
+    codeset_id::Int
+    condition_source_concept::Union{Int, Nothing}
+    condition_status::Vector{Concept}
+    condition_type::Vector{Concept}
+    condition_type_exclude::Bool
+    first::Bool
+    gender::Vector{Concept}
+    occurrence_end_date::Union{DateRange, Nothing}
+    occurrence_start_date::Union{DateRange, Nothing}
+    provider_specality::Vector{Concept}
+    stop_reason::Union{TextFilter, Nothing}
+    visit_type::Vector{Concept}
+
+    ConditionOccurrence(data::Dict) = new(
+       unpack_struct!(data, "Age", NumericRange, nothing),
+       unpack_scalar!(data, "CodesetId", Int),
+       unpack_scalar!(data, "ConditionSourceConcept", Int, nothing),
+       unpack_vector!(data, "ConditionStatus", Concept),
+       unpack_vector!(data, "ConditionType", Concept),
+       unpack_scalar!(data, "ConditionTypeExclude", Bool, false),
+       unpack_scalar!(data, "First", Bool, false),
+       unpack_vector!(data, "Gender", Concept),
+       unpack_struct!(data, "OccurrenceEndDate", DateRange, nothing),
+       unpack_struct!(data, "OccurrenceStartDate", DateRange, nothing),
+       unpack_vector!(data, "ProviderSpecialty", Concept),
+       unpack_struct!(data, "StopReason", TextFilter, nothing),
+       unpack_vector!(data, "VisitType", Concept))
+end
+
+function Criteria(data::Dict)
+    if haskey(data, "ConditionOccurrence")
+        (key, type) = ("ConditionOccurrence", ConditionOccurrence)
+    else
+        return UnknownCriteria(data)
+    end
+    subdata = data[key]
+    retval = type(subdata)
+    if isempty(subdata)
+        delete!(data, key)
+    end
+    return retval
 end
 
 struct Window
@@ -119,14 +194,6 @@ isempty(g::CriteriaGroup) =
     isempty(d.groups)
 
 
-struct ObservationFilter
-    ObservationFilter(data::Dict) = new()
-end
-
-struct ResultLimit
-    ResultLimit(data::Dict) = new()
-end
-
 struct CollapseSettings
     collapse_type::String
     era_pad::Int
@@ -177,12 +244,31 @@ struct InclusionRule
     InclusionRule(data::Dict) = new()
 end
 
+struct ObservationFilter
+    prior_days::Int
+    post_days::Int
+
+    ObservationFilter(data::Dict) = new(
+      unpack_scalar!(data, "PriorDays", Int, 0),
+      unpack_scalar!(data, "PostDays", Int, 0))
+end
+
+struct ResultLimit
+    type::String
+
+    ResultLimit(data::Dict) = new(
+      unpack_string!(data, "Type", "First"))
+end
+
 struct PrimaryCriteria
     criteria_list::Vector{Criteria}
     observation_window::ObservationFilter
     primary_limit::ResultLimit
 
-    PrimaryCriteria(data::Dict) = new()
+    PrimaryCriteria(data::Dict) = new(
+      unpack_vector!(data, "CriteriaList", Criteria),
+      unpack_struct!(data, "ObservationWindow", ObservationFilter),
+      unpack_struct!(data, "PrimaryCriteriaLimit", ResultLimit))
 end
 
 struct CohortExpression
