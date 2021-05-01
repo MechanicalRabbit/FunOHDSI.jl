@@ -72,8 +72,45 @@ struct NumericRange
     NumericRange(data::Dict) = new()
 end
 
+@enum InvalidReasonFlag UNKNOWN_REASON VALID INVALID
+Base.parse(::Type{InvalidReasonFlag}, s::Union{String, Nothing}) =
+    s == "V" ? VALID :
+    s == "D" ? INVALID :
+    s == "U" ? INVALID :
+    isnothing(s) ? UNKNOWN_REASON :
+         throw(DomainError(s, "Unknown Invalid Reason Flag"))
+
+@enum StandardConceptFlag UNKNOWN_STANDARD STANDARD NON_STANDARD CLASSIFICATION
+Base.parse(::Type{StandardConceptFlag}, s::Union{String, Nothing}) =
+    s == "N" ? NON_STANDARD :
+    s == "S" ? STANDARD :
+    s == "C" ? CLASSIFICATION :
+    isnothing(s) ? UNKNOWN_STANDARD :
+         throw(DomainError(s, "Unknown Standard Concept Flag"))
+
 struct Concept
-    Concept(data::Dict) = new()
+    concept_class_id::String
+    concept_code::String
+    concept_id::Int
+    concept_name::String
+    domain_id::String
+    invalid_reason::InvalidReasonFlag
+    invalid_reason_caption::String
+    standard_concept::StandardConceptFlag
+    standard_concept_caption::String
+    vocabulary_id::String
+
+    Concept(data::Dict) = new(
+       unpack_string!(data, "CONCEPT_CLASS_ID"),
+       unpack_string!(data, "CONCEPT_CODE"),
+       unpack_scalar!(data, "CONCEPT_ID", Int),
+       unpack_string!(data, "CONCEPT_NAME"),
+       unpack_string!(data, "DOMAIN_ID"),
+       unpack_scalar!(data, "INVALID_REASON", InvalidReasonFlag),
+       unpack_string!(data, "INVALID_REASON_CAPTION"),
+       unpack_scalar!(data, "STANDARD_CONCEPT", StandardConceptFlag),
+       unpack_string!(data, "STANDARD_CONCEPT_CAPTION"),
+       unpack_string!(data, "VOCABULARY_ID"))
 end
 
 abstract type Criteria end;
@@ -260,8 +297,35 @@ struct Period
     Period(data::Dict) = new()
 end
 
+struct ConceptSetItem
+    concept::Concept
+    is_excluded::Bool
+    include_descendants::Bool
+    include_mapped::Bool
+
+    ConceptSetItem(data::Dict) = new(
+      unpack_struct!(data, "concept", Concept),
+      unpack_scalar!(data, "isExcluded", Bool, false),
+      unpack_scalar!(data, "includeDescendants", Bool, false),
+      unpack_scalar!(data, "includeMapped", Bool, false))
+end
+
 struct ConceptSet
-    ConceptSet(data::Dict) = new()
+    id::Int
+    name::String
+    items::Vector{ConceptSetItem}
+
+    function ConceptSet(data::Dict)
+        items = data["expression"]
+        retval = new(
+          unpack_scalar!(data, "id", Int),
+          unpack_string!(data, "name"),
+          unpack_vector!(items, "items", ConceptSetItem))
+        if isempty(items)
+           delete!(data, "expression")
+        end
+        return retval
+    end
 end
 
 abstract type EndStrategy end;
