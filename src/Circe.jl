@@ -13,8 +13,7 @@ function unpack_scalar!(data::Dict, key::String, type::Type)
     if value isa String
         return parse(type, value)
     end
-    @assert value isa type
-    return value
+    return type(value)
 end
 
 unpack_scalar!(data::Dict, key::String, type::Type, default) =
@@ -114,9 +113,42 @@ struct ConditionOccurrence <: Criteria
        unpack_vector!(data, "VisitType", Concept))
 end
 
+struct VisitOccurrence <: Criteria
+    age::Union{NumericRange, Nothing}
+    codeset_id::Int
+    first::Bool
+    gender::Vector{Concept}
+    occurrence_end_date::Union{DateRange, Nothing}
+    occurrence_start_date::Union{DateRange, Nothing}
+    place_of_service::Vector{Concept}
+    place_of_service_location::Union{Int, Nothing}
+    provider_specality::Vector{Concept}
+    visit_source_concept::Union{Int, Nothing}
+    visit_length::Union{NumericRange, Nothing}
+    visit_type::Vector{Concept}
+    visit_type_exclude::Bool
+
+    VisitOccurrence(data::Dict) = new(
+       unpack_struct!(data, "Age", NumericRange, nothing),
+       unpack_scalar!(data, "CodesetId", Int),
+       unpack_scalar!(data, "First", Bool, false),
+       unpack_vector!(data, "Gender", Concept),
+       unpack_struct!(data, "OccurrenceEndDate", DateRange, nothing),
+       unpack_struct!(data, "OccurrenceStartDate", DateRange, nothing),
+       unpack_vector!(data, "PlaceOfService", Concept),
+       unpack_scalar!(data, "PlaceOfServiceLocation", Int, nothing),
+       unpack_vector!(data, "ProviderSpecialty", Concept),
+       unpack_scalar!(data, "VisitSourceConcept", Int, nothing),
+       unpack_struct!(data, "VisitLength", NumericRange, nothing),
+       unpack_vector!(data, "VisitType", Concept),
+       unpack_scalar!(data, "VisitTypeExclude", Bool, false))
+end
+
 function Criteria(data::Dict)
     if haskey(data, "ConditionOccurrence")
         (key, type) = ("ConditionOccurrence", ConditionOccurrence)
+    elseif haskey(data, "VisitOccurrence")
+        (key, type) = ("VisitOccurrence", VisitOccurrence)
     else
         return UnknownCriteria(data)
     end
@@ -128,8 +160,26 @@ function Criteria(data::Dict)
     return retval
 end
 
+struct Endpoint
+    days::Union{Int, Nothing}
+    coeff::Union{Int, Nothing}
+
+    Endpoint(data::Dict) = new(
+      unpack_scalar!(data, "Days", Int, nothing),
+      unpack_scalar!(data, "Coeff", Int, nothing))
+end
+
 struct Window
-    Window(data::Dict) = new()
+    start::Endpoint
+    end_::Endpoint
+    use_index_end::Union{Bool, Nothing}
+    use_event_end::Union{Bool, Nothing}
+
+    Window(data::Dict) = new(
+      unpack_struct!(data, "Start", Endpoint),
+      unpack_struct!(data, "End", Endpoint),
+      unpack_scalar!(data, "UseIndexEnd", Bool, nothing),
+      unpack_scalar!(data, "UseEventEnd", Bool, nothing))
 end
 
 struct CriteriaColumn
@@ -145,15 +195,19 @@ Base.parse(::Type{OccurrenceType}, s::String) =
 
 struct Occurrence
     type::OccurrenceType
+    count::Int
+    is_distinct::Bool
+    count_column::Union{CriteriaColumn, Nothing}
+
     Occurrence(data::Dict) = new(
        unpack_scalar!(data, "Type", OccurrenceType),
        unpack_scalar!(data, "Count", Int),
-       unpack_scalar!(data, "IsDistinct", Bool),
-       unpack_struct!(data, "CountColumn", CriteriaColumn))
+       unpack_scalar!(data, "IsDistinct", Bool, false),
+       unpack_struct!(data, "CountColumn", CriteriaColumn, nothing))
 end
 
 struct CorrelatedCriteria
-    criteria::Criteria
+    criteria::Union{Criteria, Nothing}
     end_window::Window
     ignore_observation_period::Bool
     occurrence::Occurrence
@@ -161,12 +215,12 @@ struct CorrelatedCriteria
     start_window::Window
 
     CorrelatedCriteria(data::Dict) = new(
-      unpack_struct!(data, "AdditionalCriteria", Criteria),
+      unpack_struct!(data, "Criteria", Criteria, nothing),
       unpack_struct!(data, "EndWindow", Window),
       unpack_scalar!(data, "IgnoreObservationPeriod", Bool, false),
       unpack_struct!(data, "Occurrence", Occurrence),
       unpack_scalar!(data, "RestrictVisit", Bool, false),
-      unpack_scalar!(data, "StartWindow", Window))
+      unpack_struct!(data, "StartWindow", Window))
 end
 
 struct DemographicCriteria
@@ -192,7 +246,6 @@ isempty(g::CriteriaGroup) =
     isempty(d.correlated_criteria) &&
     isempty(d.demographic_criteria) &&
     isempty(d.groups)
-
 
 struct CollapseSettings
     collapse_type::String
@@ -286,7 +339,7 @@ struct CohortExpression
     version_range::Union{String, Nothing}
 
     CohortExpression(data::Dict) = new(
-      unpack_struct!(data, "AdditionalCritiera", CriteriaGroup, nothing),
+      unpack_struct!(data, "AdditionalCriteria", CriteriaGroup, nothing),
       unpack_struct!(data, "CensorWindow", Period),
       unpack_vector!(data, "CensoringCriteria", Criteria),
       unpack_struct!(data, "CollapseSettings", CollapseSettings),
