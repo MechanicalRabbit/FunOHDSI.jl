@@ -9,14 +9,51 @@
 #   Visit”, respectively).
 
 using FunSQL:
-    Agg, As, Bind, Define, From, Fun, Get, Group, Join, LeftJoin, Select,
-    SQLTable, Partition, Var, Where, render
+    FunSQL, @dissect, Agg, As, Bind, Define, From, FUN, Fun, FunctionNode, Get,
+    Group, Join, LeftJoin, LIT, OP, Select, SQLClause, SQLTable, Partition,
+    Var, Where, render
 using ODBC
 using DataFrames
 using Dates
 using FunOHDSI.CDM52:
     cohort, concept, concept_ancestor, condition_occurrence,
     observation_period, person, visit_occurrence
+
+function FunSQL.translate(::Val{:+}, n::FunctionNode, treq)
+    args = FunSQL.translate(n.args, treq)
+    if length(args) == 2 && FunSQL.@dissect args[2] LIT(val = val)
+        if val isa Dates.Day
+            if treq.ctx.dialect.name === :postgresql || treq.ctx.dialect.name === :redshift
+                return OP(:+, args = [args[1], LIT(val.value)])
+            elseif treq.ctx.dialect.name === :sqlserver
+                return FUN(:DATEADD, args = [OP(:day), LIT(val.value), args[1]])
+            end
+        end
+    end
+    FunSQL.translate_default(n, treq)
+end
+
+function FunSQL.translate(::Val{:-}, n::FunctionNode, treq)
+    args = FunSQL.translate(n.args, treq)
+    if length(args) == 2 && FunSQL.@dissect args[2] LIT(val = val)
+        if val isa Dates.Day
+            if treq.ctx.dialect.name === :postgresql || treq.ctx.dialect.name === :redshift
+                return OP(:-, args = [args[1], LIT(val.value)])
+            elseif treq.ctx.dialect.name === :sqlserver
+                return FUN(:DATEADD, args = [OP(:day), LIT(- val.value), args[1]])
+            end
+        end
+    end
+    FunSQL.translate_default(n, treq)
+end
+
+function FunSQL.render(ctx, val::Bool)
+    if ctx.dialect.name === :sqlserver
+        print(ctx, val ? 1 : 0)
+    else
+        print(ctx, val ? "TRUE" : "FALSE")
+    end
+end
 
 const dsn = ENV["FUNOHDSI_DSN"]
 const conn = ODBC.Connection(dsn)
@@ -98,7 +135,7 @@ InfarctionCondition =
     Join(:concept => Infarction,
          Get.condition_concept_id .== Get.concept.concept_id) |>
     Define(:start_date => Get.condition_start_date,
-           :end_date => Get.condition_start_date .+ 7)
+           :end_date => Get.condition_start_date .+ Day(7))
 
 InfarctionCondition |>
 Select(Get.person_id, Get.start_date, Get.end_date) |>
@@ -170,7 +207,7 @@ const selected_person_id = 42891
 CorrelatedAcuteVisit(selected_person_id, Date(2008, 02, 01), Date(2008), Date(2009)) |>
 run
 
-if dialect === :postgresql
+if dialect === :postgresql || dialect === :sqlserver
     InfarctionConditionDuringAcuteVisit =
         InfarctionConditionInObservationPeriod |>
         Where(Fun.exists(CorrelatedAcuteVisit(Get.person_id,
@@ -200,7 +237,7 @@ InfarctionConditionDuringAcuteVisit |>
 Where(Get.person_id .== selected_person_id) |>
 run
 
-if dialect === :postgresql
+if dialect === :postgresql || dialect === :sqlserver
     CollapseIntervals(gap) =
         Define(:end_date => Get.end_date .+ gap) |>
         Partition(Get.person_id, order_by = [Get.start_date]) |>
@@ -228,7 +265,7 @@ end
 
 InfarctionCohort =
     InfarctionConditionDuringAcuteVisit |>
-    CollapseIntervals(180) |>
+    CollapseIntervals(Day(180)) |>
     Select(Get.person_id, Get.start_date, Get.end_date)
 
 InfarctionCohort |>
