@@ -11,26 +11,30 @@
 using FunSQL:
     Agg, As, Bind, Define, From, Fun, Get, Group, Join, LeftJoin, Select,
     SQLTable, Partition, Var, Where, render
-using LibPQ
-using DataKnots: DataKnot
+using ODBC
+using DataFrames
 using Dates
 using FunOHDSI.CDM52:
     cohort, concept, concept_ancestor, condition_occurrence,
     observation_period, person, visit_occurrence
 
-const conn = LibPQ.Connection("")
+const dsn = ENV["FUNOHDSI_DSN"]
+const conn = ODBC.Connection(dsn)
+
+const dialect = Symbol(ENV["FUNOHDSI_DIALECT"])
+@assert dialect in (:postgresql, :redshift, :sqlserver)
 
 function run(q)
     println('-' ^ 80)
     display(q)
     println()
     println()
-    sql = render(q, dialect = :postgresql)
+    sql = render(q, dialect = dialect)
     println(sql, ';')
     println()
-    @time res = execute(conn, sql)
+    @time res = DBInterface.execute(conn, sql)
     println()
-    println(convert(DataKnot, res))
+    println(IOContext(stdout, :limit => true), DataFrame(res))
 end
 
 CONCEPT(vocabulary, code) =
@@ -166,44 +170,61 @@ const selected_person_id = 42891
 CorrelatedAcuteVisit(selected_person_id, Date(2008, 02, 01), Date(2008), Date(2009)) |>
 run
 
-InfarctionConditionDuringAcuteVisit =
-    InfarctionConditionInObservationPeriod |>
-    Where(Fun.exists(CorrelatedAcuteVisit(Get.person_id,
-                                          Get.start_date,
-                                          Get.op.observation_period_start_date,
-                                          Get.op.observation_period_end_date)))
+if dialect === :postgresql
+    InfarctionConditionDuringAcuteVisit =
+        InfarctionConditionInObservationPeriod |>
+        Where(Fun.exists(CorrelatedAcuteVisit(Get.person_id,
+                                              Get.start_date,
+                                              Get.op.observation_period_start_date,
+                                              Get.op.observation_period_end_date)))
 
-InfarctionConditionDuringAcuteVisit |>
-run
+    InfarctionConditionDuringAcuteVisit |>
+    run
+end
 
-#=
-InfarctionConditionDuringAcuteVisit′ =
-    InfarctionConditionInObservationPeriod |>
-    Join(:visit => AcuteVisit,
-         Fun.and(Fun."="(Get.visit.person_id, Get.person_id),
-                  Fun."<="(Get.op.observation_period_start_date, Get.visit.visit_start_date),
-                  Fun."<="(Get.visit.visit_end_date, Get.op.observation_period_end_date),
-                  Fun."<="(Get.visit.visit_start_date, Get.start_date),
-                  Fun."<="(Get.start_date, Get.visit.visit_end_date)))
+if dialect === :redshift
+    InfarctionConditionDuringAcuteVisit =
+        InfarctionConditionInObservationPeriod |>
+        Join(:visit => AcuteVisit,
+             Fun.and(Fun."="(Get.visit.person_id, Get.person_id),
+                      Fun."<="(Get.op.observation_period_start_date, Get.visit.visit_start_date),
+                      Fun."<="(Get.visit.visit_end_date, Get.op.observation_period_end_date),
+                      Fun."<="(Get.visit.visit_start_date, Get.start_date),
+                      Fun."<="(Get.start_date, Get.visit.visit_end_date)))
 
-InfarctionConditionDuringAcuteVisit′ |>
-run
-=#
+    InfarctionConditionDuringAcuteVisit |>
+    run
+end
 
 InfarctionConditionDuringAcuteVisit |>
 Where(Get.person_id .== selected_person_id) |>
 run
 
-CollapseIntervals(gap) =
-    Define(:end_date => Get.end_date .+ gap) |>
-    Partition(Get.person_id, order_by = [Get.start_date]) |>
-    Define(:boundary => Agg.lag(Get.end_date)) |>
-    Define(:bump => Fun.case(Get.start_date .<= Get.boundary, 0, 1)) |>
-    Partition(Get.person_id, order_by = [Get.start_date]) |>
-    Define(:group => Agg.sum(Get.bump)) |>
-    Group(Get.person_id, Get.group) |>
-    Define(:start_date => Agg.min(Get.start_date),
-           :end_date => Agg.max(Get.end_date) .- gap)
+if dialect === :postgresql
+    CollapseIntervals(gap) =
+        Define(:end_date => Get.end_date .+ gap) |>
+        Partition(Get.person_id, order_by = [Get.start_date]) |>
+        Define(:boundary => Agg.lag(Get.end_date)) |>
+        Define(:bump => Fun.case(Get.start_date .<= Get.boundary, 0, 1)) |>
+        Partition(Get.person_id, order_by = [Get.start_date]) |>
+        Define(:group => Agg.sum(Get.bump)) |>
+        Group(Get.person_id, Get.group) |>
+        Define(:start_date => Agg.min(Get.start_date),
+               :end_date => Agg.max(Get.end_date) .- gap)
+end
+
+if dialect === :redshift
+    CollapseIntervals(gap) =
+        Define(:end_date => Get.end_date .+ gap) |>
+        Partition(Get.person_id, order_by = [Get.start_date]) |>
+        Define(:boundary => Agg.lag(Get.end_date)) |>
+        Define(:bump => Fun.case(Get.start_date .<= Get.boundary, 0, 1)) |>
+        Partition(Get.person_id, order_by = [Get.start_date, .- Get.bump]) |>
+        Define(:group => Agg.sum(Get.bump, frame = :rows)) |>
+        Group(Get.person_id, Get.group) |>
+        Define(:start_date => Agg.min(Get.start_date),
+               :end_date => Agg.max(Get.end_date) .- gap)
+end
 
 InfarctionCohort =
     InfarctionConditionDuringAcuteVisit |>
