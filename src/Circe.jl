@@ -69,9 +69,12 @@ end
 struct NumericRange
     value::Number
     op::String
-    extent::Number
+    extent::Union{Number, Nothing}
 
-    NumericRange(data::Dict) = new()
+    NumericRange(data::Dict) = new(
+      unpack_scalar!(data, "Value", Int),
+      unpack_string!(data, "Op"),
+      unpack_scalar!(data, "Extent", Int, nothing))
 end
 
 @enum InvalidReasonFlag UNKNOWN_REASON VALID INVALID
@@ -115,27 +118,6 @@ struct Concept
        unpack_string!(data, "VOCABULARY_ID"))
 end
 
-struct BaseCriteria
-    age::Union{NumericRange, Nothing}
-    codeset_id::Int
-    first::Bool
-    gender::Vector{Concept}
-    occurrence_end_date::Union{DateRange, Nothing}
-    occurrence_start_date::Union{DateRange, Nothing}
-    provider_specality::Vector{Concept}
-    visit_type::Vector{Concept}
-
-    BaseCriteria(data::Dict) = new(
-       unpack_struct!(data, "Age", NumericRange, nothing),
-       unpack_scalar!(data, "CodesetId", Int),
-       unpack_scalar!(data, "First", Bool, false),
-       unpack_vector!(data, "Gender", Concept),
-       unpack_struct!(data, "OccurrenceEndDate", DateRange, nothing),
-       unpack_struct!(data, "OccurrenceStartDate", DateRange, nothing),
-       unpack_vector!(data, "ProviderSpecialty", Concept),
-       unpack_vector!(data, "VisitType", Concept))
-end
-
 abstract type Criteria <: Expression end;
 
 function Base.getproperty(obj::Criteria, prop::Symbol)
@@ -146,60 +128,6 @@ function Base.getproperty(obj::Criteria, prop::Symbol)
     end
 end
 
-struct UnknownCriteria <: Criteria
-    base::BaseCriteria
-    UnknownCriteria(data::Dict) = new(BaseCriteria(data))
-end
-
-struct ConditionOccurrence <: Criteria
-    base::BaseCriteria
-    condition_source_concept::Union{Int, Nothing}
-    condition_status::Vector{Concept}
-    condition_type::Vector{Concept}
-    condition_type_exclude::Bool
-    stop_reason::Union{TextFilter, Nothing}
-
-    ConditionOccurrence(data::Dict) = new(
-       BaseCriteria(data),
-       unpack_scalar!(data, "ConditionSourceConcept", Int, nothing),
-       unpack_vector!(data, "ConditionStatus", Concept),
-       unpack_vector!(data, "ConditionType", Concept),
-       unpack_scalar!(data, "ConditionTypeExclude", Bool, false),
-       unpack_struct!(data, "StopReason", TextFilter, nothing))
-end
-
-struct VisitOccurrence <: Criteria
-    base::BaseCriteria
-    place_of_service::Vector{Concept}
-    place_of_service_location::Union{Int, Nothing}
-    visit_source_concept::Union{Int, Nothing}
-    visit_length::Union{NumericRange, Nothing}
-    visit_type_exclude::Bool
-
-    VisitOccurrence(data::Dict) = new(
-       BaseCriteria(data),
-       unpack_vector!(data, "PlaceOfService", Concept),
-       unpack_scalar!(data, "PlaceOfServiceLocation", Int, nothing),
-       unpack_scalar!(data, "VisitSourceConcept", Int, nothing),
-       unpack_struct!(data, "VisitLength", NumericRange, nothing),
-       unpack_scalar!(data, "VisitTypeExclude", Bool, false))
-end
-
-function Criteria(data::Dict)
-    if haskey(data, "ConditionOccurrence")
-        (key, type) = ("ConditionOccurrence", ConditionOccurrence)
-    elseif haskey(data, "VisitOccurrence")
-        (key, type) = ("VisitOccurrence", VisitOccurrence)
-    else
-        return UnknownCriteria(data)
-    end
-    subdata = data[key]
-    retval = type(subdata)
-    if isempty(subdata)
-        delete!(data, key)
-    end
-    return retval
-end
 
 struct Endpoint
     days::Union{Int, Nothing}
@@ -249,19 +177,19 @@ end
 
 struct CorrelatedCriteria
     criteria::Union{Criteria, Nothing}
-    end_window::Window
+    end_window::Union{Window, Nothing}
     ignore_observation_period::Bool
-    occurrence::Occurrence
+    occurrence::Union{Occurrence, Nothing}
     restrict_visit::Bool
-    start_window::Window
+    start_window::Union{Window, Nothing}
 
     CorrelatedCriteria(data::Dict) = new(
       unpack_struct!(data, "Criteria", Criteria, nothing),
-      unpack_struct!(data, "EndWindow", Window),
+      unpack_struct!(data, "EndWindow", Window, nothing),
       unpack_scalar!(data, "IgnoreObservationPeriod", Bool, false),
-      unpack_struct!(data, "Occurrence", Occurrence),
+      unpack_struct!(data, "Occurrence", Occurrence, nothing),
       unpack_scalar!(data, "RestrictVisit", Bool, false),
-      unpack_struct!(data, "StartWindow", Window))
+      unpack_struct!(data, "StartWindow", Window, nothing))
 end
 
 struct DemographicCriteria
@@ -362,7 +290,14 @@ function EndStrategy(data::Dict)
 end
 
 struct InclusionRule
-    InclusionRule(data::Dict) = new()
+    name::String
+    description::String
+    expression::CriteriaGroup
+
+    InclusionRule(data::Dict) = new(
+      unpack_string!(data, "name"),
+      unpack_string!(data, "description", ""),
+      unpack_struct!(data, "expression", CriteriaGroup))
 end
 
 struct ObservationFilter
@@ -392,13 +327,115 @@ struct PrimaryCriteria
       unpack_struct!(data, "PrimaryCriteriaLimit", ResultLimit))
 end
 
+struct BaseCriteria
+    age::Union{NumericRange, Nothing}
+    codeset_id::Int
+    correlated_criteria::Union{CorrelatedCriteria, Nothing}
+    first::Bool
+    gender::Vector{Concept}
+    occurrence_end_date::Union{DateRange, Nothing}
+    occurrence_start_date::Union{DateRange, Nothing}
+    provider_specality::Vector{Concept}
+    visit_type::Vector{Concept}
+
+    BaseCriteria(data::Dict) = new(
+       unpack_struct!(data, "Age", NumericRange, nothing),
+       unpack_scalar!(data, "CodesetId", Int),
+       unpack_scalar!(data, "CorrelatedCriteria", CorrelatedCriteria, nothing),
+       unpack_scalar!(data, "First", Bool, false),
+       unpack_vector!(data, "Gender", Concept),
+       unpack_struct!(data, "OccurrenceEndDate", DateRange, nothing),
+       unpack_struct!(data, "OccurrenceStartDate", DateRange, nothing),
+       unpack_vector!(data, "ProviderSpecialty", Concept),
+       unpack_vector!(data, "VisitType", Concept))
+end
+
+struct UnknownCriteria <: Criteria
+    UnknownCriteria(data::Dict) = new()
+end
+
+struct ConditionOccurrence <: Criteria
+    base::BaseCriteria
+    condition_source_concept::Union{Int, Nothing}
+    condition_status::Vector{Concept}
+    condition_type::Vector{Concept}
+    condition_type_exclude::Bool
+    stop_reason::Union{TextFilter, Nothing}
+
+    ConditionOccurrence(data::Dict) = new(
+       BaseCriteria(data),
+       unpack_scalar!(data, "ConditionSourceConcept", Int, nothing),
+       unpack_vector!(data, "ConditionStatus", Concept),
+       unpack_vector!(data, "ConditionType", Concept),
+       unpack_scalar!(data, "ConditionTypeExclude", Bool, false),
+       unpack_struct!(data, "StopReason", TextFilter, nothing))
+end
+
+struct Observation <: Criteria
+    base::BaseCriteria
+    observation_source_concept::Union{Int, Nothing}
+    observation_type::Vector{Concept}
+    observation_type_exclude::Bool
+    value_as_string::Union{TextFilter, Nothing}
+    value_as_number::Union{NumericRange, Nothing}
+    value_as_concept::Vector{Concept}
+    qualifier::Vector{Concept}
+    unit::Vector{Concept}
+
+    Observation(data::Dict) = new(
+       BaseCriteria(data),
+       unpack_scalar!(data, "ObservationSourceConcept", Int, nothing),
+       unpack_vector!(data, "ObservationType", Concept),
+       unpack_scalar!(data, "ObservationTypeExclude", Bool, false),
+       unpack_struct!(data, "ValueAsString", TextFilter, nothing),
+       unpack_struct!(data, "ValueAsNumber", NumericRange, nothing),
+       unpack_vector!(data, "ValueAsConcept", Concept),
+       unpack_vector!(data, "Qualifier", Concept),
+       unpack_vector!(data, "Unit", Concept))
+end
+
+struct VisitOccurrence <: Criteria
+    base::BaseCriteria
+    place_of_service::Vector{Concept}
+    place_of_service_location::Union{Int, Nothing}
+    visit_source_concept::Union{Int, Nothing}
+    visit_length::Union{NumericRange, Nothing}
+    visit_type_exclude::Bool
+
+    VisitOccurrence(data::Dict) = new(
+       BaseCriteria(data),
+       unpack_vector!(data, "PlaceOfService", Concept),
+       unpack_scalar!(data, "PlaceOfServiceLocation", Int, nothing),
+       unpack_scalar!(data, "VisitSourceConcept", Int, nothing),
+       unpack_struct!(data, "VisitLength", NumericRange, nothing),
+       unpack_scalar!(data, "VisitTypeExclude", Bool, false))
+end
+
+function Criteria(data::Dict)
+    if haskey(data, "ConditionOccurrence")
+        (key, type) = ("ConditionOccurrence", ConditionOccurrence)
+    elseif haskey(data, "VisitOccurrence")
+        (key, type) = ("VisitOccurrence", VisitOccurrence)
+    elseif haskey(data, "Observation")
+        (key, type) = ("Observation", Observation)
+    else
+        return UnknownCriteria(data)
+    end
+    subdata = data[key]
+    retval = type(subdata)
+    if isempty(subdata)
+        delete!(data, key)
+    end
+    return retval
+end
+
 struct CohortExpression
     additional_criteria::Union{CriteriaGroup, Nothing}
     censor_window::Period
     censoring_criteria::Vector{Criteria}
     collapse_settings::CollapseSettings
     concept_sets::Vector{ConceptSet}
-    end_strategy::EndStrategy
+    end_strategy::Union{EndStrategy, Nothing}
     expression_limit::ResultLimit
     inclusion_rules::Vector{InclusionRule}
     primary_criteria::PrimaryCriteria
@@ -412,7 +449,7 @@ struct CohortExpression
       unpack_vector!(data, "CensoringCriteria", Criteria),
       unpack_struct!(data, "CollapseSettings", CollapseSettings),
       unpack_vector!(data, "ConceptSets", ConceptSet),
-      unpack_struct!(data, "EndStrategy", EndStrategy),
+      unpack_struct!(data, "EndStrategy", EndStrategy, nothing),
       unpack_struct!(data, "ExpressionLimit", ResultLimit),
       unpack_vector!(data, "InclusionRules", InclusionRule),
       unpack_struct!(data, "PrimaryCriteria", PrimaryCriteria),
