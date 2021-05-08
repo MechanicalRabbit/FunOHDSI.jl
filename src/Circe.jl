@@ -2,6 +2,8 @@ module Circe
 
 import Base: isempty, parse
 
+abstract type Expression end;
+
 unpack_string!(data::Dict, key::String) =
     pop!(data, key)
 
@@ -113,71 +115,73 @@ struct Concept
        unpack_string!(data, "VOCABULARY_ID"))
 end
 
-abstract type Criteria end;
+struct BaseCriteria
+    age::Union{NumericRange, Nothing}
+    codeset_id::Int
+    first::Bool
+    gender::Vector{Concept}
+    occurrence_end_date::Union{DateRange, Nothing}
+    occurrence_start_date::Union{DateRange, Nothing}
+    provider_specality::Vector{Concept}
+    visit_type::Vector{Concept}
+
+    BaseCriteria(data::Dict) = new(
+       unpack_struct!(data, "Age", NumericRange, nothing),
+       unpack_scalar!(data, "CodesetId", Int),
+       unpack_scalar!(data, "First", Bool, false),
+       unpack_vector!(data, "Gender", Concept),
+       unpack_struct!(data, "OccurrenceEndDate", DateRange, nothing),
+       unpack_struct!(data, "OccurrenceStartDate", DateRange, nothing),
+       unpack_vector!(data, "ProviderSpecialty", Concept),
+       unpack_vector!(data, "VisitType", Concept))
+end
+
+abstract type Criteria <: Expression end;
+
+function Base.getproperty(obj::Criteria, prop::Symbol)
+    if prop in fieldnames(BaseCriteria)
+        return getfield(obj.base, prop)
+    else
+        return getfield(obj, prop)
+    end
+end
 
 struct UnknownCriteria <: Criteria
-    UnknownCriteria(data::Dict) = new()
+    base::BaseCriteria
+    UnknownCriteria(data::Dict) = new(BaseCriteria(data))
 end
 
 struct ConditionOccurrence <: Criteria
-    age::Union{NumericRange, Nothing}
-    codeset_id::Int
+    base::BaseCriteria
     condition_source_concept::Union{Int, Nothing}
     condition_status::Vector{Concept}
     condition_type::Vector{Concept}
     condition_type_exclude::Bool
-    first::Bool
-    gender::Vector{Concept}
-    occurrence_end_date::Union{DateRange, Nothing}
-    occurrence_start_date::Union{DateRange, Nothing}
-    provider_specality::Vector{Concept}
     stop_reason::Union{TextFilter, Nothing}
-    visit_type::Vector{Concept}
 
     ConditionOccurrence(data::Dict) = new(
-       unpack_struct!(data, "Age", NumericRange, nothing),
-       unpack_scalar!(data, "CodesetId", Int),
+       BaseCriteria(data),
        unpack_scalar!(data, "ConditionSourceConcept", Int, nothing),
        unpack_vector!(data, "ConditionStatus", Concept),
        unpack_vector!(data, "ConditionType", Concept),
        unpack_scalar!(data, "ConditionTypeExclude", Bool, false),
-       unpack_scalar!(data, "First", Bool, false),
-       unpack_vector!(data, "Gender", Concept),
-       unpack_struct!(data, "OccurrenceEndDate", DateRange, nothing),
-       unpack_struct!(data, "OccurrenceStartDate", DateRange, nothing),
-       unpack_vector!(data, "ProviderSpecialty", Concept),
-       unpack_struct!(data, "StopReason", TextFilter, nothing),
-       unpack_vector!(data, "VisitType", Concept))
+       unpack_struct!(data, "StopReason", TextFilter, nothing))
 end
 
 struct VisitOccurrence <: Criteria
-    age::Union{NumericRange, Nothing}
-    codeset_id::Int
-    first::Bool
-    gender::Vector{Concept}
-    occurrence_end_date::Union{DateRange, Nothing}
-    occurrence_start_date::Union{DateRange, Nothing}
+    base::BaseCriteria
     place_of_service::Vector{Concept}
     place_of_service_location::Union{Int, Nothing}
-    provider_specality::Vector{Concept}
     visit_source_concept::Union{Int, Nothing}
     visit_length::Union{NumericRange, Nothing}
-    visit_type::Vector{Concept}
     visit_type_exclude::Bool
 
     VisitOccurrence(data::Dict) = new(
-       unpack_struct!(data, "Age", NumericRange, nothing),
-       unpack_scalar!(data, "CodesetId", Int),
-       unpack_scalar!(data, "First", Bool, false),
-       unpack_vector!(data, "Gender", Concept),
-       unpack_struct!(data, "OccurrenceEndDate", DateRange, nothing),
-       unpack_struct!(data, "OccurrenceStartDate", DateRange, nothing),
+       BaseCriteria(data),
        unpack_vector!(data, "PlaceOfService", Concept),
        unpack_scalar!(data, "PlaceOfServiceLocation", Int, nothing),
-       unpack_vector!(data, "ProviderSpecialty", Concept),
        unpack_scalar!(data, "VisitSourceConcept", Int, nothing),
        unpack_struct!(data, "VisitLength", NumericRange, nothing),
-       unpack_vector!(data, "VisitType", Concept),
        unpack_scalar!(data, "VisitTypeExclude", Bool, false))
 end
 
