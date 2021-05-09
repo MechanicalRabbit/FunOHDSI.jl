@@ -8,7 +8,9 @@ unpack_string!(data::Dict, key::String) =
     pop!(data, key)
 
 unpack_string!(data::Dict, key::String, default) =
-    haskey(data, key) ? unpack_string!(data, key) : default
+    haskey(data, key) ?
+        something(unpack_string!(data, key), default) :
+        default
 
 function unpack_scalar!(data::Dict, key::String, type::Type)
     value = pop!(data, key)
@@ -78,6 +80,7 @@ struct NumericRange
 end
 
 @enum InvalidReasonFlag UNKNOWN_REASON VALID INVALID
+InvalidReasonFlag(::Nothing) = UNKNOWN_REASON
 Base.parse(::Type{InvalidReasonFlag}, s::Union{String, Nothing}) =
     s == "V" ? VALID :
     s == "D" ? INVALID :
@@ -86,6 +89,7 @@ Base.parse(::Type{InvalidReasonFlag}, s::Union{String, Nothing}) =
          throw(DomainError(s, "Unknown Invalid Reason Flag"))
 
 @enum StandardConceptFlag UNKNOWN_STANDARD STANDARD NON_STANDARD CLASSIFICATION
+StandardConceptFlag(::Nothing) = UNKNOWN_STANDARD
 Base.parse(::Type{StandardConceptFlag}, s::Union{String, Nothing}) =
     s == "N" ? NON_STANDARD :
     s == "S" ? STANDARD :
@@ -105,8 +109,9 @@ struct Concept
     standard_concept_caption::String
     vocabulary_id::String
 
-    Concept(data::Dict) = new(
-       unpack_string!(data, "CONCEPT_CLASS_ID"),
+    function Concept(data::Dict)
+       trans = (
+       unpack_string!(data, "CONCEPT_CLASS_ID", ""),
        unpack_string!(data, "CONCEPT_CODE"),
        unpack_scalar!(data, "CONCEPT_ID", Int),
        unpack_string!(data, "CONCEPT_NAME"),
@@ -116,6 +121,8 @@ struct Concept
        unpack_scalar!(data, "STANDARD_CONCEPT", StandardConceptFlag),
        unpack_string!(data, "STANDARD_CONCEPT_CAPTION"),
        unpack_string!(data, "VOCABULARY_ID"))
+       return new(trans...)
+    end
 end
 
 abstract type Criteria <: Expression end;
@@ -394,6 +401,23 @@ struct Observation <: Criteria
        unpack_vector!(data, "Unit", Concept))
 end
 
+struct ProcedureOccurrence <: Criteria
+    base::BaseCriteria
+    procedure_source_concept::Union{Int, Nothing}
+    procedure_type::Vector{Concept}
+    procedure_type_exclude::Bool
+    modifier::Vector{Concept}
+    quantity::Union{NumericRange, Nothing}
+
+    ProcedureOccurrence(data::Dict) = new(
+       BaseCriteria(data),
+       unpack_scalar!(data, "ProcedureSourceConcept", Int, nothing),
+       unpack_vector!(data, "ProcedureType", Concept),
+       unpack_scalar!(data, "ProcedureTypeExclude", Bool, false),
+       unpack_vector!(data, "Modifier", Concept),
+       unpack_struct!(data, "Quantity", NumericRange, nothing))
+end
+
 struct VisitOccurrence <: Criteria
     base::BaseCriteria
     place_of_service::Vector{Concept}
@@ -412,21 +436,19 @@ struct VisitOccurrence <: Criteria
 end
 
 function Criteria(data::Dict)
-    if haskey(data, "ConditionOccurrence")
-        (key, type) = ("ConditionOccurrence", ConditionOccurrence)
-    elseif haskey(data, "VisitOccurrence")
-        (key, type) = ("VisitOccurrence", VisitOccurrence)
-    elseif haskey(data, "Observation")
-        (key, type) = ("Observation", Observation)
-    else
-        return UnknownCriteria(data)
+    for type in (ConditionOccurrence, Observation, ProcedureOccurrence,
+                 VisitOccurrence)
+        key = string(nameof(type))
+        if haskey(data, key)
+            subdata = data[key]
+            retval = type(subdata)
+            if isempty(subdata)
+                delete!(data, key)
+            end
+            return retval
+        end
     end
-    subdata = data[key]
-    retval = type(subdata)
-    if isempty(subdata)
-        delete!(data, key)
-    end
-    return retval
+    return UnknownCriteria(data)
 end
 
 struct CohortExpression
