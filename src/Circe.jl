@@ -239,12 +239,19 @@ isempty(g::CriteriaGroup) =
     isempty(d.demographic_criteria) &&
     isempty(d.groups)
 
+@enum CollapseType UNKNOWN_COLLAPSE ERA
+CollapseType(::Nothing) = UNKNOWN_COLLAPSE
+Base.parse(::Type{CollapseType}, s::Union{String, Nothing}) =
+    s == "ERA" ? ERA :
+    isnothing(s) ? UNKNOWN_COLLAPSE :
+         throw(DomainError(s, "Unknown Collapse Type"))
+
 struct CollapseSettings
-    collapse_type::String
+    collapse_type::CollapseType
     era_pad::Int
 
     CollapseSettings(data::Dict) = new(
-      unpack_string!(data, "CollapseType"),
+      unpack_scalar!(data, "CollapseType", CollapseType),
       unpack_scalar!(data, "EraPad", Int, 0))
 end
 
@@ -286,7 +293,16 @@ end
 abstract type EndStrategy end;
 
 struct CustomEraStrategy <: EndStrategy
-    CustomEraEndStrategy(data::Dict) = new()
+    drug_codeset_id::Union{Int, Nothing}
+    gap_days::Int
+    offset::Int
+    days_supply_override::Union{Int, Nothing}
+
+    CustomEraStrategy(data::Dict) = new(
+       unpack_scalar!(data, "DrugCodesetId", Int, nothing),
+       unpack_scalar!(data, "GapDays", Int, 0),
+       unpack_scalar!(data, "Offset", Int, 0),
+       unpack_scalar!(data, "DaysSupplyOverride", Int, nothing))
 end
 
 struct DateOffsetStrategy <: EndStrategy
