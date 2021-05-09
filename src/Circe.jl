@@ -1,8 +1,8 @@
 module Circe
 
-import Base: isempty, parse
+using Dates
 
-abstract type Expression end;
+import Base: isempty, parse
 
 unpack_string!(data::Dict, key::String) =
     pop!(data, key)
@@ -53,12 +53,14 @@ function unpack_vector!(data::Dict, key::String, type::Type)
 end
 
 struct DateRange
-    value::String
+    value::Date
     op::String
-    extent::String
+    extent::Union{Date, Nothing}
 
-    DateRange(data::Dict) = new()
-
+    DateRange(data::Dict) = new(
+      unpack_scalar!(data, "Value", Date),
+      unpack_string!(data, "Op"),
+      unpack_scalar!(data, "Extent", Date, nothing))
 end
 
 struct TextFilter
@@ -125,6 +127,8 @@ struct Concept
     end
 end
 
+abstract type Expression end;
+
 abstract type Criteria <: Expression end;
 
 function Base.getproperty(obj::Criteria, prop::Symbol)
@@ -134,7 +138,6 @@ function Base.getproperty(obj::Criteria, prop::Symbol)
         return getfield(obj, prop)
     end
 end
-
 
 struct Endpoint
     days::Union{Int, Nothing}
@@ -391,6 +394,57 @@ struct ConditionOccurrence <: Criteria
        unpack_struct!(data, "StopReason", TextFilter, nothing))
 end
 
+struct Death <: Criteria
+    base::BaseCriteria
+    death_source_concept::Union{Int, Nothing}
+    death_type::Vector{Concept}
+    death_type_exclude::Bool
+
+    Death(data::Dict) = new(
+       BaseCriteria(data),
+       unpack_scalar!(data, "DeathSourceConcept", Int, nothing),
+       unpack_vector!(data, "DeathType", Concept),
+       unpack_scalar!(data, "DeathTypeExclude", Bool, false))
+end
+
+struct DeviceExposure <: Criteria
+    base::BaseCriteria
+    device_source_concept::Union{Int, Nothing}
+    device_type::Vector{Concept}
+    device_type_exclude::Bool
+    quantity::Union{NumericRange, Nothing}
+    unique_device_id::Union{TextFilter, Nothing}
+
+    DeviceExposure(data::Dict) = new(
+       BaseCriteria(data),
+       unpack_scalar!(data, "DeviceSourceConcept", Int, nothing),
+       unpack_vector!(data, "DeviceType", Concept),
+       unpack_scalar!(data, "DeviceTypeExclude", Bool, false),
+       unpack_struct!(data, "Quantity", NumericRange, nothing),
+       unpack_struct!(data, "UniqueDeviceId", TextFilter, nothing))
+end
+
+struct DrugEra <: Criteria
+    base::BaseCriteria
+    era_end_date::Union{DateRange, Nothing}
+    era_start_date::Union{DateRange, Nothing}
+    era_length::Union{NumericRange, Nothing}
+    occurrence_count::Union{NumericRange, Nothing}
+    gap_days::Union{NumericRange, Nothing}
+    age_at_start::Union{NumericRange, Nothing}
+    age_at_end::Union{NumericRange, Nothing}
+
+    DrugEra(data::Dict) = new(
+       BaseCriteria(data),
+       unpack_struct!(data, "EraEndDate", DateRange, nothing),
+       unpack_struct!(data, "EraStartDate", DateRange, nothing),
+       unpack_struct!(data, "EraLength", NumericRange, nothing),
+       unpack_struct!(data, "OccurrenceCount", NumericRange, nothing),
+       unpack_struct!(data, "GapDays", NumericRange, nothing),
+       unpack_struct!(data, "AgeAtStart", NumericRange, nothing),
+       unpack_struct!(data, "AgeAtEnd", NumericRange, nothing))
+end
+
 struct DrugExposure <: Criteria
     base::BaseCriteria
     drug_source_concept::Union{Int, Nothing}
@@ -533,9 +587,9 @@ struct VisitOccurrence <: Criteria
 end
 
 function Criteria(data::Dict)
-    for type in (ConditionOccurrence, DrugExposure, Measurement,
-                 Observation, ObservationPeriod, ProcedureOccurrence,
-                 VisitOccurrence)
+    for type in (ConditionOccurrence, Death, DeviceExposure, DrugEra,
+                 DrugExposure, Measurement, Observation,
+                 ObservationPeriod, ProcedureOccurrence, VisitOccurrence)
         key = string(nameof(type))
         if haskey(data, key)
             subdata = data[key]
