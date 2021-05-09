@@ -393,6 +393,26 @@ struct UnknownCriteria <: Criteria
     UnknownCriteria(data::Dict) = new()
 end
 
+struct ConditionEra <: Criteria
+    # like DrugEra, but missing gap_length?
+    base::BaseCriteria
+    era_end_date::Union{DateRange, Nothing}
+    era_start_date::Union{DateRange, Nothing}
+    era_length::Union{NumericRange, Nothing}
+    occurrence_count::Union{NumericRange, Nothing}
+    age_at_start::Union{NumericRange, Nothing}
+    age_at_end::Union{NumericRange, Nothing}
+
+    ConditionEra(data::Dict) = new(
+       BaseCriteria(data),
+       unpack_struct!(data, "EraEndDate", DateRange, nothing),
+       unpack_struct!(data, "EraStartDate", DateRange, nothing),
+       unpack_struct!(data, "EraLength", NumericRange, nothing),
+       unpack_struct!(data, "OccurrenceCount", NumericRange, nothing),
+       unpack_struct!(data, "AgeAtStart", NumericRange, nothing),
+       unpack_struct!(data, "AgeAtEnd", NumericRange, nothing))
+end
+
 struct ConditionOccurrence <: Criteria
     base::BaseCriteria
     condition_source_concept::Union{Int, Nothing}
@@ -490,6 +510,38 @@ struct DrugExposure <: Criteria
        unpack_struct!(data, "StopReason", TextFilter, nothing))
 end
 
+struct DoseEra <: Criteria
+    base::BaseCriteria
+    dose_value::Union{NumericRange, Nothing}
+    era_end_date::Union{DateRange, Nothing}
+    era_start_date::Union{DateRange, Nothing}
+    era_length::Union{NumericRange, Nothing}
+    age_at_start::Union{NumericRange, Nothing}
+    age_at_end::Union{NumericRange, Nothing}
+    unit::Vector{Concept}
+
+    DoseEra(data::Dict) = new(
+       BaseCriteria(data),
+       unpack_struct!(data, "DoseValue", NumericRange, nothing),
+       unpack_struct!(data, "EraEndDate", DateRange, nothing),
+       unpack_struct!(data, "EraStartDate", DateRange, nothing),
+       unpack_struct!(data, "EraLength", NumericRange, nothing),
+       unpack_struct!(data, "AgeAtStart", NumericRange, nothing),
+       unpack_struct!(data, "AgeAtEnd", NumericRange, nothing),
+       unpack_vector!(data, "Unit", Concept))
+end
+
+struct LocationRegion
+    codeset_id::Union{Int, Nothing}
+    start_date::Union{DateRange, Nothing}
+    end_date::Union{DateRange, Nothing}
+
+    LocationRegion(data::Dict) = new(
+       unpack_scalar!(data, "CodesetId", Int, nothing),
+       unpack_struct!(data, "StartDate", DateRange, nothing),
+       unpack_struct!(data, "EndDate", DateRange, nothing))
+end
+
 struct Measurement <: Criteria
     base::BaseCriteria
     observation_source_concept::Union{Int, Nothing}
@@ -568,6 +620,45 @@ struct ObservationPeriod <: Criteria
        unpack_struct!(data, "UserDefinedPeriod", Period,  nothing))
 end
 
+struct PayerPlanPeriod <: Criteria
+    base::BaseCriteria
+    period_type::Vector{Concept}
+    period_type_exclude::Bool
+    period_start_date::Union{DateRange, Nothing}
+    period_end_date::Union{DateRange, Nothing}
+    period_length::Union{NumericRange, Nothing}
+    age_at_start::Union{NumericRange, Nothing}
+    age_at_end::Union{NumericRange, Nothing}
+    payer_concept::Union{Int, Nothing}
+    plan_conceot::Union{Int, Nothing}
+    sponsor_conceot::Union{Int, Nothing}
+    stop_reason_concept::Union{Int, Nothing}
+    stop_reason_source_concept::Union{Int, Nothing}
+    payer_source_concept::Union{Int, Nothing}
+    plan_source_concept::Union{Int, Nothing}
+    sponsor_source_concept::Union{Int, Nothing}
+    user_defined_period::Union{Period, Nothing}
+
+    PayerPlanPeriod(data::Dict) = new(
+       BaseCriteria(data),
+       unpack_vector!(data, "PeriodType", Concept),
+       unpack_scalar!(data, "PeriodTypeExclude", Bool, false),
+       unpack_struct!(data, "PeriodStartDate", DateRange, nothing),
+       unpack_struct!(data, "PeriodEndDate", DateRange, nothing),
+       unpack_struct!(data, "PeriodLength", NumericRange, nothing),
+       unpack_struct!(data, "AgeAtStart", NumericRange, nothing),
+       unpack_struct!(data, "AgeAtEnd", NumericRange, nothing),
+       unpack_scalar!(data, "PayerConcept", Int, nothing),
+       unpack_scalar!(data, "PlanConcept", Int, nothing),
+       unpack_scalar!(data, "SponsorConcept", Int, nothing),
+       unpack_scalar!(data, "StopReasonConcept", Int, nothing),
+       unpack_scalar!(data, "StopReasonSourceConcept", Int, nothing),
+       unpack_scalar!(data, "PayerSourceConcept", Int, nothing),
+       unpack_scalar!(data, "PlanSourceConcept", Int, nothing),
+       unpack_scalar!(data, "SponsorSourceConcept", Int, nothing),
+       unpack_struct!(data, "UserDefinedPeriod", Period,  nothing))
+end
+
 struct ProcedureOccurrence <: Criteria
     base::BaseCriteria
     procedure_source_concept::Union{Int, Nothing}
@@ -583,6 +674,29 @@ struct ProcedureOccurrence <: Criteria
        unpack_scalar!(data, "ProcedureTypeExclude", Bool, false),
        unpack_vector!(data, "Modifier", Concept),
        unpack_struct!(data, "Quantity", NumericRange, nothing))
+end
+
+struct Specimen <: Criteria
+    base::BaseCriteria
+    specimen_source_concept::Union{Int, Nothing}
+    specimen_type::Vector{Concept}
+    specimen_type_exclude::Bool
+    quantity::Union{NumericRange, Nothing}
+    unit::Vector{Concept}
+    anatomic_site::Vector{Concept}
+    disease_status::Vector{Concept}
+    source_id::Union{TextFilter, Nothing}
+
+    Specimen(data::Dict) = new(
+       BaseCriteria(data),
+       unpack_scalar!(data, "SpecimenSourceConcept", Int, nothing),
+       unpack_vector!(data, "SpecimenType", Concept),
+       unpack_scalar!(data, "SpecimenTytpeExclude", Bool, false),
+       unpack_struct!(data, "Quantity", NumericRange, nothing),
+       unpack_vector!(data, "Unit", Concept),
+       unpack_vector!(data, "AnatomicSite", Concept),
+       unpack_vector!(data, "DiseaseStatus", Concept),
+       unpack_scalar!(data, "SourceId", TextFilter, nothing))
 end
 
 struct VisitOccurrence <: Criteria
@@ -603,9 +717,11 @@ struct VisitOccurrence <: Criteria
 end
 
 function Criteria(data::Dict)
-    for type in (ConditionOccurrence, Death, DeviceExposure, DrugEra,
-                 DrugExposure, Measurement, Observation,
-                 ObservationPeriod, ProcedureOccurrence, VisitOccurrence)
+    for type in (ConditionEra, ConditionOccurrence, Death,
+                 DeviceExposure, DoseEra, DrugEra, DrugExposure,
+                 LocationRegion, Measurement, Observation,
+                 ObservationPeriod, PayerPlanPeriod,
+                 ProcedureOccurrence, Specimen, VisitOccurrence)
         key = string(nameof(type))
         if haskey(data, key)
             subdata = data[key]
