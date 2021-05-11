@@ -118,7 +118,10 @@ InfarctionConditionInObservationPeriod =
     Join(:op => observation_period,
          Fun.and(Get.person_id .== Get.op.person_id,
                  Get.op.observation_period_start_date .<= Get.start_date,
-                 Get.start_date .<= Get.op.observation_period_end_date))
+                 Get.start_date .<= Get.op.observation_period_end_date)) |>
+    Define(:end_date => Fun.case(Get.end_date .<= Get.op.observation_period_end_date,
+                                 Get.end_date,
+                                 Get.op.observation_period_end_date))
 
 InfarctionConditionInObservationPeriod |>
 Select(Get.person_id,
