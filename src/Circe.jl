@@ -78,7 +78,7 @@ end
 end
 
 unpack!(::Type{TextFilter}, data::Dict) = TextFilter(
-    text = unpack_string!(data, "Text"),
+    text = unpack_string!(data, "Text", "null"),
     op = unpack_string!(data, "Op"))
 
 function PrettyPrinting.quoteof(obj::TextFilter)
@@ -145,9 +145,9 @@ function unpack!(::Type{Concept}, data::Dict)
         concept_id = unpack_scalar!(data, "CONCEPT_ID", Int),
         concept_name = unpack_string!(data, "CONCEPT_NAME"),
         domain_id = unpack_string!(data, "DOMAIN_ID"),
-        invalid_reason = unpack_scalar!(data, "INVALID_REASON", InvalidReasonFlag),
+        invalid_reason = unpack_scalar!(data, "INVALID_REASON", InvalidReasonFlag, UNKNOWN_REASON),
         invalid_reason_caption = unpack_string!(data, "INVALID_REASON_CAPTION"),
-        standard_concept = unpack_scalar!(data, "STANDARD_CONCEPT", StandardConceptFlag),
+        standard_concept = unpack_scalar!(data, "STANDARD_CONCEPT", StandardConceptFlag, UNKNOWN_STANDARD),
         standard_concept_caption = unpack_string!(data, "STANDARD_CONCEPT_CAPTION"),
         vocabulary_id = unpack_string!(data, "VOCABULARY_ID"))
 end
@@ -809,11 +809,14 @@ function PrettyPrinting.quoteof(obj::DoseEra)
     ex
 end
 
-@Base.kwdef struct LocationRegion
+@Base.kwdef struct LocationRegion <: Criteria
     codeset_id::Union{Int, Nothing} = nothing
     start_date::Union{DateRange, Nothing} = nothing
     end_date::Union{DateRange, Nothing} = nothing
 end
+
+Base.getproperty(obj::LocationRegion, prop::Symbol) =
+    getfield(obj, prop)
 
 unpack!(::Type{LocationRegion}, data::Dict) = LocationRegion(
     codeset_id = unpack_scalar!(data, "CodesetId", Int, nothing),
@@ -822,7 +825,6 @@ unpack!(::Type{LocationRegion}, data::Dict) = LocationRegion(
 
 function PrettyPrinting.quoteof(obj::LocationRegion)
     ex = Expr(:call, nameof(DoseEra))
-    push!(ex.args, Expr(:kw, :base, obj.base))
     obj.codeset_id === nothing || push!(ex.args, Expr(:kw, :codeset_id, obj.codeset_id))
     obj.start_date === nothing || push!(ex.args, Expr(:kw, :start_date, obj.start_date))
     obj.end_date === nothing || push!(ex.args, Expr(:kw, :end_date, obj.end_date))
@@ -910,7 +912,7 @@ function PrettyPrinting.quoteof(obj::Observation)
     obj.value_as_string === nothing || push!(ex.args, Expr(:kw, :value_as_string, obj.value_as_string))
     obj.value_as_number === nothing || push!(ex.args, Expr(:kw, :value_as_number, obj.value_as_number))
     isempty(obj.value_as_concept) || push!(ex.args, Expr(:kw, :value_as_concept, obj.value_as_concept))
-    isempty(obj.qualifier) || push!(ex.args, Expr(:kw, :qualifier, obj.qualifiter))
+    isempty(obj.qualifier) || push!(ex.args, Expr(:kw, :qualifier, obj.qualifier))
     isempty(obj.unit) || push!(ex.args, Expr(:kw, :unit, obj.unit))
     ex
 end
@@ -1062,15 +1064,15 @@ unpack!(::Type{Specimen}, data::Dict) = Specimen(
     unit = unpack_vector!(data, "Unit", Concept),
     anatomic_site = unpack_vector!(data, "AnatomicSite", Concept),
     disease_status = unpack_vector!(data, "DiseaseStatus", Concept),
-    source_id = unpack_scalar!(data, "SourceId", TextFilter, nothing))
+    source_id = unpack_struct!(data, "SourceId", TextFilter, nothing))
 
 function PrettyPrinting.quoteof(obj::Specimen)
     ex = Expr(:call, nameof(Specimen))
     push!(ex.args, Expr(:kw, :base, obj.base))
-    obj.speciment_source_concept === nothing || push!(ex.args, Expr(:kw, :speciment_source_concept, obj.speciment_source_concept))
-    isempty(obj.speciment_type) || push!(ex.args, Expr(:kw, :speciment_type, obj.speciment_type))
-    obj.speciment_type_exclude == false || push!(ex.args, Expr(:kw, :speciment_type_exclude, obj.speciment_type_exclude))
-    isempty(obj.quantity) || push!(ex.args, Expr(:kw, :quantity, obj.quantity))
+    obj.specimen_source_concept === nothing || push!(ex.args, Expr(:kw, :specimen_source_concept, obj.specimen_source_concept))
+    isempty(obj.specimen_type) || push!(ex.args, Expr(:kw, :specimen_type, obj.specimen_type))
+    obj.specimen_type_exclude == false || push!(ex.args, Expr(:kw, :specimen_type_exclude, obj.specimen_type_exclude))
+    obj.quantity === nothing || push!(ex.args, Expr(:kw, :quantity, obj.quantity))
     isempty(obj.unit) || push!(ex.args, Expr(:kw, :unit, obj.unit))
     isempty(obj.anatomic_site) || push!(ex.args, Expr(:kw, :anatomic_site, obj.anatomic_site))
     isempty(obj.disease_status) || push!(ex.args, Expr(:kw, :disease_status, obj.disease_status))
@@ -1127,7 +1129,7 @@ end
 
 @Base.kwdef struct CohortExpression
     additional_criteria::Union{CriteriaGroup, Nothing} = nothing
-    censor_window::Period
+    censor_window::Union{Period, Nothing} = nothing
     censoring_criteria::Vector{Criteria} = Criteria[]
     collapse_settings::CollapseSettings
     concept_sets::Vector{ConceptSet} = ConceptSet[]
@@ -1142,7 +1144,7 @@ end
 
 unpack!(::Type{CohortExpression}, data::Dict) = CohortExpression(
     additional_criteria = unpack_struct!(data, "AdditionalCriteria", CriteriaGroup, nothing),
-    censor_window = unpack_struct!(data, "CensorWindow", Period),
+    censor_window = unpack_struct!(data, "CensorWindow", Period, nothing),
     censoring_criteria = unpack_vector!(data, "CensoringCriteria", Criteria),
     collapse_settings = unpack_struct!(data, "CollapseSettings", CollapseSettings),
     concept_sets = unpack_vector!(data, "ConceptSets", ConceptSet),
@@ -1159,7 +1161,7 @@ unpack!(data::Dict) = unpack!(CohortExpression, data)
 function PrettyPrinting.quoteof(obj::CohortExpression)
     ex = Expr(:call, nameof(CohortExpression))
     obj.additional_criteria === nothing || push!(ex.args, Expr(:kw, :additional_criteria, obj.additional_criteria))
-    push!(ex.args, Expr(:kw, :censor_window, obj.censor_window))
+    obj.censor_window === nothing || push!(ex.args, Expr(:kw, :censor_window, obj.censor_window))
     isempty(obj.censoring_criteria) || push!(ex.args, Expr(:kw, :censoring_criteria, obj.censoring_criteria))
     push!(ex.args, Expr(:kw, :collapse_settings, obj.collapse_settings))
     isempty(obj.concept_sets) || push!(ex.args, Expr(:kw, :concept_sets, obj.concept_sets))
