@@ -29,26 +29,40 @@ const SqlRender =
 const SqlTranslate =
     JavaObject{Symbol("org.ohdsi.sql.SqlTranslate")}
 
-function cohort_to_sql(cohort::AbstractString,
-                       dialect::AbstractString,
-                       parameters::AbstractDict{<:AbstractString, <:AbstractString})
+function render_sql(template::AbstractString, parameters::AbstractDict{<:AbstractString, <:AbstractString})
+    initialize()
+    jcall(SqlRender, "renderSql",
+          JString, (JString, Vector{JString}, Vector{JString}),
+          template, collect(String, keys(parameters)), collect(String, values(parameters)))
+end
+
+function translate_sql(sql::AbstractString, dialect::AbstractString)
     initialize()
     if dialect == "sqlserver"
         dialect = "sql server"
     end
+    jcall(SqlTranslate, "translateSql",
+          JString, (JString, JString),
+          sql, dialect)
+end
+
+function build_expression_query(cohort::AbstractString)
+    initialize()
     expr = jcall(CohortExpression, "fromJson",
                  CohortExpression, (JString,),
                  cohort)
     builder = CohortExpressionQueryBuilder(())
-    template = jcall(builder, "buildExpressionQuery",
-                     JString, (CohortExpression, BuildExpressionQueryOptions),
-                     expr, nothing)
-    sql = jcall(SqlRender, "renderSql",
-                JString, (JString, Vector{JString}, Vector{JString}),
-                template, collect(String, keys(parameters)), collect(String, values(parameters)))
-    tr = jcall(SqlTranslate, "translateSql",
-               JString, (JString, JString),
-               sql, dialect)
+    jcall(builder, "buildExpressionQuery",
+          JString, (CohortExpression, BuildExpressionQueryOptions),
+          expr, nothing)
+end
+
+function cohort_to_sql(cohort::AbstractString,
+                       dialect::AbstractString,
+                       parameters::AbstractDict{<:AbstractString, <:AbstractString})
+    template = build_expression_query(cohort)
+    sql = render_sql(template, parameters)
+    tr = translate_sql(sql, dialect)
     replace(tr, "\r\n" => '\n')
 end
 
