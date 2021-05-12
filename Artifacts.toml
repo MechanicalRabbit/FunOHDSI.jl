@@ -11,3 +11,10 @@ git-tree-sha1 = "05eb764d317dc34125b01e72f86885962b3ba8a9"
     [[SqlRender.download]]
     url = "https://github.com/OHDSI/SqlRender/archive/refs/tags/v1.7.0.tar.gz"
     sha256 = "83820f2ed53ace0a84e6552fafdebfcdf3a375407f28cbb46f409da2fc1b6dca"
+
+[PhenotypeLibrary]
+git-tree-sha1 = "2e81ea7d13eb74ed64d3b0a160a24c05441549cd"
+
+    [[PhenotypeLibrary.download]]
+    url = "https://github.com/OHDSI/PhenotypeLibrary/archive/refs/tags/v0.0.1.tar.gz"
+    sha256 = "1c0c3c4b5d89b6b73fd8711d4942c9b2c5e733d17468cd8a9e05706fc2d9eb76"
