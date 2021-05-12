@@ -1,43 +1,32 @@
 module Legacy
 
-using JavaCall
 using Pkg.Artifacts
 
 const initialized = Ref(false)
 
 function initialize()
     if !initialized[]
-        JavaCall.addClassPath(joinpath(artifact"CirceR", "CirceR-1.0.0/inst/java/*"))
-        JavaCall.addClassPath(joinpath(artifact"SqlRender", "SqlRender-1.7.0/inst/java/*"))
-        JavaCall.init(["-Xmx128M"])
+        @eval using JavaCall
+        Base.invokelatest() do
+            JavaCall.addClassPath(joinpath(artifact"CirceR", "CirceR-1.0.0/inst/java/*"))
+            JavaCall.addClassPath(joinpath(artifact"SqlRender", "SqlRender-1.7.0/inst/java/*"))
+            JavaCall.init(["-Xmx128M"])
+        end
         initialized[] = true
     end
 end
 
-const CohortExpression =
-    JavaObject{Symbol("org.ohdsi.circe.cohortdefinition.CohortExpression")}
-
-const CohortExpressionQueryBuilder =
-    JavaObject{Symbol("org.ohdsi.circe.cohortdefinition.CohortExpressionQueryBuilder")}
-
-const BuildExpressionQueryOptions =
-    JavaObject{Symbol("org.ohdsi.circe.cohortdefinition.CohortExpressionQueryBuilder\$BuildExpressionQueryOptions")}
-
-const SqlRender =
-    JavaObject{Symbol("org.ohdsi.sql.SqlRender")}
-
-const SqlTranslate =
-    JavaObject{Symbol("org.ohdsi.sql.SqlTranslate")}
-
 function render_sql(template::AbstractString, parameters::AbstractDict{<:AbstractString, <:AbstractString})
-    initialize()
+    SqlRender =
+        JavaObject{Symbol("org.ohdsi.sql.SqlRender")}
     jcall(SqlRender, "renderSql",
           JString, (JString, Vector{JString}, Vector{JString}),
           template, collect(String, keys(parameters)), collect(String, values(parameters)))
 end
 
 function translate_sql(sql::AbstractString, dialect::AbstractString)
-    initialize()
+    SqlTranslate =
+        JavaObject{Symbol("org.ohdsi.sql.SqlTranslate")}
     if dialect == "sqlserver"
         dialect = "sql server"
     end
@@ -47,7 +36,12 @@ function translate_sql(sql::AbstractString, dialect::AbstractString)
 end
 
 function build_expression_query(cohort::AbstractString)
-    initialize()
+    CohortExpression =
+        JavaObject{Symbol("org.ohdsi.circe.cohortdefinition.CohortExpression")}
+    CohortExpressionQueryBuilder =
+        JavaObject{Symbol("org.ohdsi.circe.cohortdefinition.CohortExpressionQueryBuilder")}
+    BuildExpressionQueryOptions =
+        JavaObject{Symbol("org.ohdsi.circe.cohortdefinition.CohortExpressionQueryBuilder\$BuildExpressionQueryOptions")}
     expr = jcall(CohortExpression, "fromJson",
                  CohortExpression, (JString,),
                  cohort)
@@ -60,6 +54,10 @@ end
 function cohort_to_sql(cohort::AbstractString,
                        dialect::AbstractString,
                        parameters::AbstractDict{<:AbstractString, <:AbstractString})
+    if !initialized[]
+        initialize()
+        return Base.invokelatest(cohort_to_sql, cohort, dialect, parameters)
+    end
     template = build_expression_query(cohort)
     sql = render_sql(template, parameters)
     tr = translate_sql(sql, dialect)
