@@ -15,9 +15,9 @@ using FunSQL:
 using ODBC
 using DataFrames
 using Dates
-using FunOHDSI.CDM52:
-    cohort, concept, concept_ancestor, condition_occurrence,
-    observation_period, person, visit_occurrence
+using FunOHDSI: Model
+
+const model = Model()
 
 function FunSQL.translate(::Val{:+}, n::FunctionNode, treq)
     args = FunSQL.translate(n.args, treq)
@@ -100,7 +100,7 @@ HasCode(cs::AbstractVector) =
     Fun.or(args = [HasCode(c) for c in cs])
 
 FromConcept() =
-    From(concept) |>
+    From(model.concept) |>
     Where(Fun."is null"(Get.invalid_reason))
 
 FromConcept(c; exclude = nothing) =
@@ -108,7 +108,7 @@ FromConcept(c; exclude = nothing) =
 
 FromConcept(c, ::Nothing) =
     FromConcept() |>
-    Join(:descendant_x_ancestor => concept_ancestor,
+    Join(:descendant_x_ancestor => model.concept_ancestor,
          Get.concept_id .== Get.descendant_x_ancestor.descendant_concept_id) |>
     Join(:ancestor => FromConcept() |>
                       Where(HasCode(c)),
@@ -131,7 +131,7 @@ InpatientOrER = FromConcept(inpatient_or_er)
 run(InpatientOrER)
 
 InfarctionCondition =
-    From(condition_occurrence) |>
+    From(model.condition_occurrence) |>
     Join(:concept => Infarction,
          Get.condition_concept_id .== Get.concept.concept_id) |>
     Define(:start_date => Get.condition_start_date,
@@ -143,7 +143,7 @@ run
 
 #=
 InfarctionCondition′ =
-    From(condition_occurrence) |>
+    From(model.condition_occurrence) |>
     Where(Fun.in(Get.condition_concept_id,
                  Infarction |> Select(Get.concept_id))) |>
     Define(:start_date => Get.condition_start_date,
@@ -156,7 +156,7 @@ run
 
 InfarctionConditionInObservationPeriod =
     InfarctionCondition |>
-    Join(:op => observation_period,
+    Join(:op => model.observation_period,
          Fun.and(Get.person_id .== Get.op.person_id,
                  Get.op.observation_period_start_date .<= Get.start_date,
                  Get.start_date .<= Get.op.observation_period_end_date)) |>
@@ -173,7 +173,7 @@ Select(Get.person_id,
 run
 
 AcuteVisit =
-    From(visit_occurrence) |>
+    From(model.visit_occurrence) |>
     Join(:concept => InpatientOrER,
          Get.visit_concept_id .== Get.concept.concept_id)
 
@@ -182,7 +182,7 @@ run
 
 #=
 AcuteVisit′ =
-    From(visit_occurrence) |>
+    From(model.visit_occurrence) |>
     Where(Fun.in(Get.visit_concept_id,
                  InpatientOrER |> Select(Get.concept_id)))
 
