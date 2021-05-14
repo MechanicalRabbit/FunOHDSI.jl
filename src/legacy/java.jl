@@ -68,24 +68,26 @@ cohort_to_sql(cohort, dialect, parameters) =
                   Dict{String, String}([string(key) => string(val)
                                         for (key, val) in pairs(parameters)]))
 
-cohort_to_sql(cohort;
+function cohort_to_sql(cohort;
               dialect = :postgresql,
               target_cohort_id = 0,
               generateStats = 0,
-              vocabulary_database_schema = :public,
-              cdm_database_schema = :public,
-              results_database_schema = :public,
-              target_database_schema = :public,
+              vocabulary_database_schema = nothing,
+              cdm_database_schema = nothing,
+              results_database_schema = nothing,
+              target_database_schema = nothing,
               target_cohort_table = :cohort,
-              kws...) =
+              kws...)
+    default_schema = dialect === :sqlserver ? :dbo : :public
     cohort_to_sql(cohort,
                   dialect,
                   (target_cohort_id = target_cohort_id,
                    generateStats = generateStats,
-                   vocabulary_database_schema = vocabulary_database_schema,
-                   cdm_database_schema = cdm_database_schema,
-                   results_database_schema = results_database_schema,
-                   target_database_schema = target_database_schema,
+                   vocabulary_database_schema = something(vocabulary_database_schema, default_schema),
+                   cdm_database_schema = something(cdm_database_schema, default_schema),
+                   results_database_schema = something(results_database_schema, default_schema),
+                   target_database_schema = something(target_database_schema, default_schema),
                    target_cohort_table = target_cohort_table,
                    kws...))
+end
 

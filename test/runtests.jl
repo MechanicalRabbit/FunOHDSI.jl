@@ -2,14 +2,19 @@
 
 using Test
 
-using FunOHDSI.Legacy: unpack!, translate
+using FunOHDSI: Source
+using FunOHDSI.Legacy: unpack!, translate, cohort_to_sql, initialize_java
+using FunSQL: render, As, Select, Get, From, Fun, Join, Where
 using JSON
 using PrettyPrinting
 using Pkg.Artifacts
+using ODBC
+using DataFrames
 
 should_exit_on_error = false
 should_test_unpack = false
 should_test_translate = false
+should_test_result = false
 should_test_all = true
 cohort = nothing
 for arg in ARGS
@@ -21,11 +26,19 @@ for arg in ARGS
     elseif arg == "--test-translate"
         global should_test_translate = true
         global should_test_all = false
+    elseif arg == "--test-result"
+        global should_test_translate = true
+        global should_test_result = true
+        global should_test_all = false
     elseif startswith(arg, "--cohort=")
         global cohort = arg[length("--cohort=")+1:end]
     else
         error("invalid argument $arg")
     end
+end
+
+if should_test_result
+    initialize_java()
 end
 
 macro testset_unless_exit_on_error(name, ex)
@@ -97,20 +110,61 @@ if should_test_unpack || should_test_all
 end
 
 if should_test_translate || should_test_all
+    source = should_test_result ? Source() : nothing
+    dialect = source !== nothing ? source.dialect : :postgresql
+
     @testset_unless_exit_on_error "translate()" begin
         function test_translate(file)
             println('-' ^ 80)
             println(file)
-            data = JSON.parsefile(file)
+            json = read(file, String)
+            data = JSON.parse(json)
             expr = unpack!(data)
             @assert isempty(data)
             pprintln(expr)
-            sql = translate(expr, dialect = :postgresql)
+            q = translate(expr, dialect = dialect)
+            pprintln(q)
+            q = q |> Select(:cohort_definition_id => 1,
+                            Get.subject_id,
+                            Get.cohort_start_date,
+                            Get.cohort_end_date)
+            sql = render(q, dialect = dialect)
             println(sql)
-            true
+            source !== nothing || return true
+            conn = ODBC.Connection(source.dsn)
+            sql = """
+            DELETE FROM cohort where cohort_definition_id = 1;
+            INSERT INTO cohort
+            $sql;
+            """
+            @time DBInterface.execute(conn, sql)
+            sql′ = cohort_to_sql(json, dialect = dialect)
+            println(sql′)
+            @time DBInterface.execute(conn, sql′)
+            q = From(source.model.cohort) |>
+                Where(Get.cohort_definition_id .== 1) |>
+                As(:a) |>
+                Join(From(source.model.cohort) |>
+                     Where(Get.cohort_definition_id .== 0) |>
+                     As(:b),
+                     Fun.and(Get.a.subject_id .== Get.b.subject_id,
+                             Get.a.cohort_start_date .== Get.b.cohort_start_date,
+                             Get.a.cohort_end_date .== Get.b.cohort_end_date),
+                     left = true, right = true) |>
+                Where(Fun.or(Fun."is null"(Get.a.subject_id),
+                             Fun."is null"(Get.b.subject_id))) |>
+                Select(:subject_id => Fun.coalesce(Get.a.subject_id, Get.b.subject_id),
+                       :start_date => Fun.coalesce(Get.a.cohort_start_date, Get.b.cohort_start_date),
+                       :end_date => Fun.coalesce(Get.a.cohort_end_date, Get.b.cohort_end_date),
+                       :definition_id => Fun.coalesce(Get.a.cohort_definition_id, Get.b.cohort_definition_id))
+            sql = render(q, dialect = dialect)
+            diff = DataFrame(DBInterface.execute(conn, sql))
+            sort!(diff)
+            println(diff)
+            isempty(diff)
         end
 
-        test_each_circe_cohort(test_translate)
+        #test_each_circe_cohort(test_translate)
         test_each_phenotype_cohort(test_translate)
     end
 end
