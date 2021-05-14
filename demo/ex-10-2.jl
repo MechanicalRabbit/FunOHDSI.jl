@@ -15,9 +15,7 @@ using FunSQL:
 using ODBC
 using DataFrames
 using Dates
-using FunOHDSI: Model
-
-const model = Model()
+using FunOHDSI: Source
 
 function FunSQL.translate(::Val{:+}, n::FunctionNode, treq)
     args = FunSQL.translate(n.args, treq)
@@ -55,11 +53,11 @@ function FunSQL.render(ctx, val::Bool)
     end
 end
 
-const dsn = ENV["FUNOHDSI_DSN"]
+const source = Source()
+const dialect = source.dialect
+const dsn = source.dsn
+const model = source.model
 const conn = ODBC.Connection(dsn)
-
-const dialect = Symbol(ENV["FUNOHDSI_DIALECT"])
-@assert dialect in (:postgresql, :redshift, :sqlserver)
 
 function run(q)
     println('-' ^ 80)
