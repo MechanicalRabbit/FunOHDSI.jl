@@ -1,18 +1,16 @@
-module Legacy
-
 using Pkg.Artifacts
 
-const initialized = Ref(false)
+const java_initialized = Ref(false)
 
-function initialize()
-    if !initialized[]
+function initialize_java()
+    if !java_initialized[]
         @eval using JavaCall
         Base.invokelatest() do
             JavaCall.addClassPath(joinpath(artifact"CirceR", "CirceR-1.0.0/inst/java/*"))
             JavaCall.addClassPath(joinpath(artifact"SqlRender", "SqlRender-1.7.0/inst/java/*"))
             JavaCall.init(["-Xmx128M"])
         end
-        initialized[] = true
+        java_initialized[] = true
     end
 end
 
@@ -54,8 +52,8 @@ end
 function cohort_to_sql(cohort::AbstractString,
                        dialect::AbstractString,
                        parameters::AbstractDict{<:AbstractString, <:AbstractString})
-    if !initialized[]
-        initialize()
+    if !java_initialized[]
+        initialize_java()
         return Base.invokelatest(cohort_to_sql, cohort, dialect, parameters)
     end
     template = build_expression_query(cohort)
@@ -91,4 +89,3 @@ cohort_to_sql(cohort;
                    target_cohort_table = target_cohort_table,
                    kws...))
 
-end

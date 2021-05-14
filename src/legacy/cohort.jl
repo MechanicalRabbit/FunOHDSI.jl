@@ -1,5 +1,3 @@
-module Circe
-
 using Dates
 using PrettyPrinting: PrettyPrinting, @isexpr
 
@@ -537,4 +535,3 @@ end
 
 unpack!(data) = unpack!(CohortExpression, data)
 
-end
