@@ -1,7 +1,7 @@
 #!/usr/bin/env julia
 
 using Test
-using FunOHDSI.Circe: unpack!
+using FunOHDSI.Legacy: unpack!
 using JSON
 using PrettyPrinting
 using Pkg.Artifacts
