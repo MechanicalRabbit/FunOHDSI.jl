@@ -4,7 +4,7 @@ using Test
 
 using FunOHDSI: Source
 using FunOHDSI.Legacy: unpack!, translate, cohort_to_sql, initialize_java
-using FunSQL: render, As, Select, Get, From, Fun, Join, Where
+using FunSQL: render, As, Select, Get, From, Fun, Join, Where, Group, Agg
 using JSON
 using PrettyPrinting
 using Pkg.Artifacts
@@ -141,6 +141,12 @@ if should_test_translate || should_test_all
             sql′ = cohort_to_sql(json, dialect = dialect)
             println(sql′)
             @time DBInterface.execute(conn, sql′)
+            q = From(source.model.cohort) |>
+                Where(Get.cohort_definition_id .== 1) |>
+                Group() |>
+                Select(Agg.count())
+            total = DataFrame(DBInterface.execute(conn, render(q, dialect = dialect)))
+            println(total)
             q = From(source.model.cohort) |>
                 Where(Get.cohort_definition_id .== 1) |>
                 As(:a) |>
