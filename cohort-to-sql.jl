@@ -1,6 +1,7 @@
 #!/usr/bin/env julia
 
 using FunOHDSI.Legacy: cohort_to_sql
+using StringEncodings
 
 function usage()
     println("Usage: $PROGRAM_FILE [dialect=postgresql] [target_cohort_id=0] ... < cohort.json")
@@ -18,7 +19,7 @@ for arg in ARGS
     parameters[Symbol(key)] = val
 end
 
-const cohort = read(stdin, String)
+const cohort = decode(read(stdin), "latin1")
 
 sql = cohort_to_sql(cohort; parameters...)
 println(sql)

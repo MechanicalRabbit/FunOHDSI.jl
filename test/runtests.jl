@@ -10,6 +10,7 @@ using PrettyPrinting
 using Pkg.Artifacts
 using ODBC
 using DataFrames
+using StringEncodings
 
 should_exit_on_error = false
 should_test_unpack = false
@@ -117,7 +118,8 @@ if should_test_translate || should_test_all
         function test_translate(file)
             println('-' ^ 80)
             println(file)
-            json = read(file, String)
+            raw = read(file)
+            json = decode(raw, "latin1")
             data = JSON.parse(json)
             expr = unpack!(data)
             @assert isempty(data)
