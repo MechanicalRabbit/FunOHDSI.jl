@@ -18,6 +18,8 @@ should_test_translate = false
 should_test_result = false
 should_test_all = true
 cohort = nothing
+should_show_expr = false
+should_show_sql = false
 for arg in ARGS
     if arg == "--exit-on-error"
         global should_exit_on_error = true
@@ -33,6 +35,10 @@ for arg in ARGS
         global should_test_all = false
     elseif startswith(arg, "--cohort=")
         global cohort = arg[length("--cohort=")+1:end]
+    elseif arg == "--show-expr"
+        global should_show_expr = true
+    elseif arg == "--show-sql"
+        global should_show_sql = true
     else
         error("invalid argument $arg")
     end
@@ -100,8 +106,10 @@ if should_test_unpack || should_test_all
             println(file)
             data = JSON.parsefile(file)
             expr = unpack!(data)
-            pprintln(expr)
-            pprintln(data)
+            if should_show_expr
+                pprintln(expr)
+                pprintln(data)
+            end
             isempty(data)
         end
 
@@ -123,15 +131,18 @@ if should_test_translate || should_test_all
             data = JSON.parse(json)
             expr = unpack!(data)
             @assert isempty(data)
-            pprintln(expr)
+            if should_show_expr
+                pprintln(expr)
+            end
             q = translate(expr, dialect = dialect)
-            pprintln(q)
             q = q |> Select(:cohort_definition_id => 1,
                             Get.subject_id,
                             Get.cohort_start_date,
                             Get.cohort_end_date)
             sql = render(q, dialect = dialect)
-            println(sql)
+            if should_show_sql
+                println(sql)
+            end
             source !== nothing || return true
             conn = ODBC.Connection(source.dsn)
             sql = """
@@ -141,12 +152,13 @@ if should_test_translate || should_test_all
             """
             @time DBInterface.execute(conn, sql)
             sql′ = cohort_to_sql(json, dialect = dialect)
-            println(sql′)
+            if should_show_sql
+                println(sql′)
+            end
             @time DBInterface.execute(conn, sql′)
             q = From(source.model.cohort) |>
-                Where(Get.cohort_definition_id .== 1) |>
-                Group() |>
-                Select(Agg.count())
+                Group(Get.cohort_definition_id) |>
+                Select(Get.cohort_definition_id, Agg.count())
             total = DataFrame(DBInterface.execute(conn, render(q, dialect = dialect)))
             println(total)
             q = From(source.model.cohort) |>
