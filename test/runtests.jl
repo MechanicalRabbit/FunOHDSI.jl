@@ -134,22 +134,12 @@ if should_test_translate || should_test_all
             if should_show_expr
                 pprintln(expr)
             end
-            q = translate(expr, dialect = dialect)
-            q = q |> Select(:cohort_definition_id => 1,
-                            Get.subject_id,
-                            Get.cohort_start_date,
-                            Get.cohort_end_date)
-            sql = render(q, dialect = dialect)
+            sql = translate(expr, dialect = dialect, cohort_definition_id = 1)
             if should_show_sql
                 println(sql)
             end
             source !== nothing || return true
             conn = ODBC.Connection(source.dsn)
-            sql = """
-            DELETE FROM cohort where cohort_definition_id = 1;
-            INSERT INTO cohort
-            $sql;
-            """
             @time DBInterface.execute(conn, sql)
             sql′ = cohort_to_sql(json, dialect = dialect)
             if should_show_sql
