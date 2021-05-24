@@ -2,6 +2,7 @@ module FunOHDSI
 
 include("model.jl")
 include("source.jl")
+include("concept.jl")
 
 module Legacy
 include("legacy/cohort.jl")
