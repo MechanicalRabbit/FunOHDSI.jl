@@ -27,6 +27,9 @@ julia> materialize(c, Source());
 abstract type ConceptExpression
 end
 
+(c::ConceptExpression)(c′) =
+    c(convert(ConceptExpression, c′))
+
 struct Concept <: ConceptExpression
     id::Int
 
@@ -36,6 +39,9 @@ end
 
 Concept(id) =
     Concept(id = id)
+
+Base.convert(::Type{ConceptExpression}, id::Integer) =
+    Concept(id)
 
 (c::Concept)(c′::ConceptExpression) =
     c
