@@ -75,7 +75,7 @@ const invalid_circe_be_cohort_files = [
     "payerPlanCohortExpression.json",
 ]
 function test_each_circe_cohort(f)
-    for (root, dirs, files) in walkdir(joinpath(artifact"circe-be", "circe-be-1.9.3/src/test/resources"))
+    for (root, dirs, files) in walkdir(joinpath(artifact"circe-be", "circe-be-1.9.4/src/test/resources"))
         for file in files
             cohort == nothing || contains(file, cohort) || continue
             endswith(file, ".json") || continue

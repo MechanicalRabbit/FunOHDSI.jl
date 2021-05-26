@@ -1,16 +1,16 @@
 [circe-be]
-git-tree-sha1 = "f27b96d2b05f0fbef68ec1b8d2017b8bccd65002"
+git-tree-sha1 = "fc18c2e104767d599e3785abca456bd739bfa381"
 
     [[circe-be.download]]
-    url = "https://github.com/OHDSI/circe-be/archive/refs/tags/v1.9.3.tar.gz"
-    sha256 = "f8880b83b6a9721aab9ce82c61715d55b38fa09be572bbaed69508a2fcbb99b1"
+    url = "https://github.com/OHDSI/circe-be/archive/refs/tags/v1.9.4.tar.gz"
+    sha256 = "6af9dc67e7e1885019ca31a94a1f0cecc8c043177cfd715859fd4720b9f0f44b"
 
 [CirceR]
-git-tree-sha1 = "0893e1e2553d6d6d5a818a21521981d59b9e0bc5"
+git-tree-sha1 = "e9a6a895b2057454728c47b8333fe627808d8b39"
 
     [[CirceR.download]]
-    url = "https://github.com/OHDSI/CirceR/archive/refs/tags/v1.0.0.tar.gz"
-    sha256 = "fadc82dedbfae745ee181cedd7345369f6d9dd0b65402cdc9a7510294dfc7046"
+    url = "https://github.com/OHDSI/CirceR/archive/refs/tags/v1.1.1.tar.gz"
+    sha256 = "62a02a7570a4310374fd6ddcf9d307a1eebf2826dbd6a866b2ce094fd44fd0ee"
 
 [SqlRender]
 git-tree-sha1 = "05eb764d317dc34125b01e72f86885962b3ba8a9"

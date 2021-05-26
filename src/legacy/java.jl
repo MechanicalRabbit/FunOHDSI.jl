@@ -6,7 +6,7 @@ function initialize_java()
     if !java_initialized[]
         @eval using JavaCall
         Base.invokelatest() do
-            JavaCall.addClassPath(joinpath(artifact"CirceR", "CirceR-1.0.0/inst/java/*"))
+            JavaCall.addClassPath(joinpath(artifact"CirceR", "CirceR-1.1.1/inst/java/*"))
             JavaCall.addClassPath(joinpath(artifact"SqlRender", "SqlRender-1.7.0/inst/java/*"))
             JavaCall.init(["-Xmx128M"])
         end
