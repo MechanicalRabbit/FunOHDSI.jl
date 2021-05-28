@@ -10,4 +10,8 @@ include("legacy/java.jl")
 include("legacy/translate.jl")
 end
 
+module REPL
+include("repl.jl")
+end
+
 end
