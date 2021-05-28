@@ -59,6 +59,28 @@ ConceptSearch(search) =
 (c::ConceptSearch)(c′::ConceptExpression) =
     c
 
+standard_values = Set([:standard, :nonstandard, :classification])
+
+struct ConceptFilter <: ConceptExpression
+    base::ConceptExpression
+    standard::Union{Symbol, Nothing}
+    vocabulary::Union{Nothing,Vector{String}}
+
+    function ConceptFilter(; base=nothing, standard=nothing, vocabulary=nothing)
+        if standard !== nothing && standard ∉ standard_values
+            throw(ArgumentError("invalid standard filter: $standard"))
+        end
+        new(base, standard, vocabulary)
+    end
+end
+
+(c::ConceptFilter)(c′::ConceptExpression) =
+    ConceptFilter(
+                  base = c.base(c′),
+                  standard = c.standard,
+                  vocabulary = c.vocabulary
+                 )
+
 struct EmptyConcept <: ConceptExpression
 end
 
@@ -72,7 +94,7 @@ struct IncludeConcepts <: ConceptExpression
     base::ConceptExpression
     exprs::Vector{ConceptExpression}
 
-    IncludeConcepts(; base = nothing, exprs) =
+    IncludeConcepts(; base = nothing, exprs = []) =
         new(base, exprs)
 end
 
@@ -86,7 +108,7 @@ struct ExcludeConcepts <: ConceptExpression
     base::ConceptExpression
     exprs::Vector{ConceptExpression}
 
-    ExcludeConcepts(; base = nothing, exprs) =
+    ExcludeConcepts(; base = nothing, exprs = []) =
         new(base, exprs)
 end
 
@@ -164,7 +186,24 @@ translate(c::Concept, ctx::TranslateConceptContext) =
 
 translate(c::ConceptSearch, ctx::TranslateConceptContext) =
     From(ctx.model.concept) |>
-    Where(Fun.like(Get.concept_name, "%" * c.search * "%"))
+    Where(Fun.ilike(Get.concept_name, "%" * c.search * "%"))
+
+function translate(c::ConceptFilter, ctx::TranslateConceptContext)
+    q = translate(c.base, ctx)
+    if c.standard !== nothing
+        q = q |> Where(if c.standard == :standard
+                           Get.standard_concept .== "S"
+                        elseif c.standard == :classification
+                           Get.standard_concept .== "C"
+                        else
+                            Fun."is null"(Get.standard_concept)
+                        end)
+    end
+    if c.vocabulary !== nothing && length(c.vocabulary) > 0
+        q = q |> Where(Fun."or"(((Get.vocabulary_id .== v) for v in c.vocabulary)...))
+    end
+    q
+end
 
 translate(::EmptyConcept, ctx::TranslateConceptContext) =
     From(ctx.model.concept) |>
