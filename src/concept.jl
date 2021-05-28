@@ -94,7 +94,7 @@ struct IncludeConcepts <: ConceptExpression
     base::ConceptExpression
     exprs::Vector{ConceptExpression}
 
-    IncludeConcepts(; base = nothing, exprs) =
+    IncludeConcepts(; base = nothing, exprs = []) =
         new(base, exprs)
 end
 
@@ -108,7 +108,7 @@ struct ExcludeConcepts <: ConceptExpression
     base::ConceptExpression
     exprs::Vector{ConceptExpression}
 
-    ExcludeConcepts(; base = nothing, exprs) =
+    ExcludeConcepts(; base = nothing, exprs = []) =
         new(base, exprs)
 end
 
