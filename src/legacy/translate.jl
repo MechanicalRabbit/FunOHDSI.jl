@@ -4,9 +4,13 @@ using PrettyPrinting
 using FunSQL:
     FunSQL, Append, Define, From, FUN, OP, Fun, FunctionNode, Get, Join,
     LeftJoin, Select, Where, Partition, Agg, Group, As, Var, Bind, SQLNode, KW,
-    Lit, render, SQLTable
+    Lit, render, SQLTable, SQLClause
 
 import ..Model, ..Source
+
+FunSQL.translate(::Val{:ilike}, n::FunctionNode, treq) =
+    OP(:ILIKE,
+       args = SQLClause[FunSQL.translate(arg, treq) for arg in n.args])
 
 function FunSQL.translate(::Val{:extract_year}, n::FunctionNode, treq)
     args = FunSQL.translate(n.args, treq)

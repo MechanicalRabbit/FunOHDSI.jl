@@ -164,7 +164,7 @@ translate(c::Concept, ctx::TranslateConceptContext) =
 
 translate(c::ConceptSearch, ctx::TranslateConceptContext) =
     From(ctx.model.concept) |>
-    Where(Fun.like(Get.concept_name, "%" * c.search * "%"))
+    Where(Fun.ilike(Get.concept_name, "%" * c.search * "%"))
 
 translate(::EmptyConcept, ctx::TranslateConceptContext) =
     From(ctx.model.concept) |>
