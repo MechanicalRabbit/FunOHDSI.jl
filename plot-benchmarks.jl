@@ -23,13 +23,10 @@ begin
 end
 
 # ╔═╡ e2e2e3e6-bf45-11eb-0990-ef4c69f166d2
-files = [file for file in readdir() if endswith(file, ".csv")]
+available_files = [file for file in readdir() if endswith(file, ".csv")]
 
 # ╔═╡ 52a7dbb3-149a-4cad-a6da-229c027317fa
-@bind file1 Select(files)
-
-# ╔═╡ c8ae0708-459e-4606-a9de-08347eacf257
-@bind file2 Select(files)
+@bind files MultiCheckBox(available_files, orientation = :column)
 
 # ╔═╡ 3909b6c0-efb3-40b9-891f-4067498c3df4
 function loadbenchmark(file)
@@ -43,34 +40,60 @@ function loadbenchmark(file)
 end
 
 # ╔═╡ 01387cbc-a371-40ed-a08b-c984cebd085a
-name1, df1 = loadbenchmark(file1)
-
-# ╔═╡ d2b0bfb4-de0a-4c1a-afa7-603e32527017
-name2, df2 = loadbenchmark(file2)
-
-# ╔═╡ 45924ea7-7ff1-4b9c-af4b-dfab44908f74
 begin
-	scatter_df = innerjoin(select(df1, :cohort, :elapsed => :x),
-		                   select(df2, :cohort, :elapsed => :y),
-		                   on = :cohort)
-	@df scatter_df scatter(:x, :y, xlabel = name1, ylabel = name2, legend = false, hover = :cohort)
+	names = String[]
+	dfs = DataFrame[]
+	for file in files
+		name, df = loadbenchmark(file)
+		push!(names, name)
+		push!(dfs, df)
+	end
+	N = length(dfs)
 end
 
-# ╔═╡ f0fe3600-c25b-4f40-b775-b46023454dbb
+# ╔═╡ d2b0bfb4-de0a-4c1a-afa7-603e32527017
 begin
-	diff_df = scatter_df[:, :]
-	diff_df.d = (diff_df.x .- diff_df.y) ./ diff_df.x
-	sort!(diff_df, [:d])
-	@df diff_df plot(:d)
+	scatters = []
+	for i = 1:lastindex(dfs)-1
+		let df1 = dfs[i],
+			name1 = names[i]
+			for j = i+1:lastindex(dfs)
+				let df2 = dfs[j],
+					name2 = names[j],
+					df = innerjoin(select(df1, :cohort, :elapsed => :x),
+						           select(df2, :cohort, :elapsed => :y),
+						           on = :cohort),
+					p = @df df scatter(:x, :y,
+						               xlabel = name1,
+						               ylabel = name2,
+						               legend = false,
+						               hover = :cohort,
+					                   aspect_ratio = :equal,
+					                   smooth = true)
+					push!(scatters,
+						  md"""
+						  #### $name1 / $name2
+						  $p
+						  """)
+				end
+			end
+		end
+	end
+	md"$(scatters...)"
+end
+
+# ╔═╡ 5fd2e131-7b5a-430b-ada0-c857b0781f54
+if !isempty(dfs)
+	let df = vcat(dfs...)
+		@df df heatmap(:name, :cohort, :elapsed, hover = :cohort)
+	end
 end
 
 # ╔═╡ Cell order:
 # ╠═e2e2e3e6-bf45-11eb-0990-ef4c69f166d2
 # ╠═52a7dbb3-149a-4cad-a6da-229c027317fa
-# ╠═c8ae0708-459e-4606-a9de-08347eacf257
 # ╠═01387cbc-a371-40ed-a08b-c984cebd085a
 # ╠═d2b0bfb4-de0a-4c1a-afa7-603e32527017
-# ╠═45924ea7-7ff1-4b9c-af4b-dfab44908f74
-# ╠═f0fe3600-c25b-4f40-b775-b46023454dbb
+# ╠═5fd2e131-7b5a-430b-ada0-c857b0781f54
 # ╠═b624cf52-0089-404e-af5b-c14a93ad79e8
 # ╠═3909b6c0-efb3-40b9-891f-4067498c3df4
