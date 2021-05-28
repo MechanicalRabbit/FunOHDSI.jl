@@ -71,8 +71,12 @@ end
 function execute(query::SQLNode, source)
     sql = FunSQL.render(query, dialect = source.dialect)
     conn = ODBC.Connection(source.dsn)
-    cur = DBInterface.execute(conn, sql)
-    Tables.rowtable(cur)
+    try
+        cur = DBInterface.execute(conn, sql)
+        Tables.rowtable(cur)
+    finally
+        DBInterface.close!(conn)
+    end
 end
 
 function translatewithinfo(c::ConceptExpression, source::Source)
