@@ -51,6 +51,16 @@ begin
 	N = length(dfs)
 end
 
+# ╔═╡ 56e5b83d-0331-4789-9d7f-f57e31d23fa8
+if !isempty(dfs)
+	let df = combine(groupby(vcat(dfs...), :name), :elapsed => sum => :elapsed)
+		@df df bar(:name, :elapsed,
+			       title = "Total Time",
+			       legend = :false,
+		           formatter = :plain)
+	end
+end
+
 # ╔═╡ d2b0bfb4-de0a-4c1a-afa7-603e32527017
 begin
 	scatters = []
@@ -93,6 +103,7 @@ end
 # ╠═e2e2e3e6-bf45-11eb-0990-ef4c69f166d2
 # ╠═52a7dbb3-149a-4cad-a6da-229c027317fa
 # ╠═01387cbc-a371-40ed-a08b-c984cebd085a
+# ╠═56e5b83d-0331-4789-9d7f-f57e31d23fa8
 # ╠═d2b0bfb4-de0a-4c1a-afa7-603e32527017
 # ╠═5fd2e131-7b5a-430b-ada0-c857b0781f54
 # ╠═b624cf52-0089-404e-af5b-c14a93ad79e8
