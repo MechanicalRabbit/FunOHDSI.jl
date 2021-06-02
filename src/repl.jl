@@ -5,6 +5,7 @@ using Dates
 import FunSQL:
     FunSQL, SQLNode, Select, Get, From, Join, Lit, Group, Agg, Fun
 import ..FunOHDSI:
+    FunOHDSI,
     ConceptExpression, Concept, EmptyConcept, IncludeConcepts, ExcludeConcepts,
     ConceptSearch, ConceptFilter, ConceptParents, ConceptChildren,
     ConceptDescendants, ConceptAncestors, Source, translate
@@ -98,7 +99,7 @@ function translatewithinfo(c::ConceptExpression, source::Source)
             )
 end
 
-tojs(expr::EmptyConcept, source::Source) =
+tojs(::EmptyConcept, ::Source) =
     nothing
 
 function tojs(expr::Concept, source::Source)
@@ -110,49 +111,31 @@ function tojs(expr::Concept, source::Source)
     get(rows, 1, nothing)
 end
 
-tojs(expr::ConceptSearch, source::Source) = (
-    __type="ConceptSearch",
-    search=expr.search
-)
+function derive_tojs(stype::Type{<:ConceptExpression})
+    name = String(stype.name.name)
+    args = [:(__type=$name)]
+    for (name, type) in zip(fieldnames(stype), fieldtypes(stype))
+        if type <: ConceptExpression
+            push!(args, :($name=tojs(expr.$name, source)))
+        elseif type <: Vector{<:ConceptExpression}
+            push!(args, :($name=[tojs(e, source) for e in expr.$name]))
+        else
+            push!(args, :($name=expr.$name))
+        end
+    end
+    eval(quote
+        tojs(expr::$stype, source::FunOHDSI.Source) = (;$(args...))
+    end)
+end
 
-tojs(expr::ConceptFilter, source::Source) = (
-    __type="ConceptFilter",
-    base=tojs(expr.base, source),
-    standard=expr.standard,
-    vocabulary=expr.vocabulary,
-)
-
-tojs(expr::IncludeConcepts, source::Source) = (
-    __type="IncludeConcepts",
-    base=tojs(expr.base, source),
-    exprs=[tojs(c, source) for c in expr.exprs],
-)
-
-tojs(expr::ExcludeConcepts, source::Source) = (
-    __type="ExcludeConcepts",
-    base=tojs(expr.base, source),
-    exprs=[tojs(c, source) for c in expr.exprs],
-)
-
-tojs(expr::ConceptParents, source::Source) = (
-    __type="ConceptParents",
-    base=tojs(expr.base, source),
-)
-
-tojs(expr::ConceptChildren, source::Source) = (
-    __type="ConceptChildren",
-    base=tojs(expr.base, source),
-)
-
-tojs(expr::ConceptAncestors, source::Source) = (
-    __type="ConceptAncestors",
-    base=tojs(expr.base, source),
-)
-
-tojs(expr::ConceptDescendants, source::Source) = (
-    __type="ConceptDescendants",
-    base=tojs(expr.base, source),
-)
+derive_tojs(ConceptSearch)
+derive_tojs(ConceptFilter)
+derive_tojs(IncludeConcepts)
+derive_tojs(ExcludeConcepts)
+derive_tojs(ConceptParents)
+derive_tojs(ConceptChildren)
+derive_tojs(ConceptAncestors)
+derive_tojs(ConceptDescendants)
 
 function __init__()
     haspluto = hasproperty(Main, :PlutoRunner)
