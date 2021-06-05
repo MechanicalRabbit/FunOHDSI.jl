@@ -2,8 +2,8 @@
 
 using Test
 
-using FunOHDSI: Source
-using FunOHDSI.Legacy: unpack!, translate, cohort_to_sql, initialize_java
+using FunOHDSI: Source, initialize_java, cohort_to_sql
+using OHDSICohortExpressions: unpack!, translate
 using FunSQL: render, As, Select, Get, From, Fun, Join, Where, Group, Agg
 using JSON
 using PrettyPrinting

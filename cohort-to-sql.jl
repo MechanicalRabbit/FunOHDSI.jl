@@ -1,6 +1,6 @@
 #!/usr/bin/env julia
 
-using FunOHDSI.Legacy: cohort_to_sql
+using FunOHDSI: cohort_to_sql
 using StringEncodings
 
 function usage()
