@@ -13,11 +13,11 @@ git-tree-sha1 = "e9a6a895b2057454728c47b8333fe627808d8b39"
     sha256 = "62a02a7570a4310374fd6ddcf9d307a1eebf2826dbd6a866b2ce094fd44fd0ee"
 
 [SqlRender]
-git-tree-sha1 = "05eb764d317dc34125b01e72f86885962b3ba8a9"
+git-tree-sha1 = "e49bd54d8b08044b28b2bb450fb3ab0ae2cd8b76"
 
     [[SqlRender.download]]
-    url = "https://github.com/OHDSI/SqlRender/archive/refs/tags/v1.7.0.tar.gz"
-    sha256 = "83820f2ed53ace0a84e6552fafdebfcdf3a375407f28cbb46f409da2fc1b6dca"
+    url = "https://github.com/OHDSI/SqlRender/archive/refs/tags/v1.8.1.tar.gz"
+    sha256 = "7bf26d06bcfd1c624dfd2d0afad6ec549e15bb08f01416706711b295240b45a9"
 
 [PhenotypeLibrary]
 git-tree-sha1 = "2e81ea7d13eb74ed64d3b0a160a24c05441549cd"
