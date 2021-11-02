@@ -1,7 +1,7 @@
 name = "FunOHDSI"
 uuid = "7539fc6a-a93a-4904-a247-8ced788e8ae9"
 authors = ["Kirill Simonov <xi@resolvent.net>"]
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
 FunSQL = "cf6cc811-59f4-4a10-b258-a8547a8f6407"

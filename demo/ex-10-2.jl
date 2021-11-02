@@ -17,32 +17,32 @@ using DataFrames
 using Dates
 using FunOHDSI: Source
 
-function FunSQL.translate(::Val{:+}, n::FunctionNode, treq)
-    args = FunSQL.translate(n.args, treq)
+function FunSQL.translate(::Val{:+}, n::FunctionNode, ctx)
+    args = FunSQL.translate(n.args, ctx)
     if length(args) == 2 && FunSQL.@dissect args[2] LIT(val = val)
         if val isa Dates.Day
-            if treq.ctx.dialect.name === :postgresql || treq.ctx.dialect.name === :redshift
+            if ctx.dialect.name === :postgresql || ctx.dialect.name === :redshift
                 return OP(:+, args = [args[1], LIT(val.value)])
-            elseif treq.ctx.dialect.name === :sqlserver
+            elseif ctx.dialect.name === :sqlserver
                 return FUN(:DATEADD, args = [OP(:day), LIT(val.value), args[1]])
             end
         end
     end
-    FunSQL.translate_default(n, treq)
+    FunSQL.translate_default(n, ctx)
 end
 
-function FunSQL.translate(::Val{:-}, n::FunctionNode, treq)
-    args = FunSQL.translate(n.args, treq)
+function FunSQL.translate(::Val{:-}, n::FunctionNode, ctx)
+    args = FunSQL.translate(n.args, ctx)
     if length(args) == 2 && FunSQL.@dissect args[2] LIT(val = val)
         if val isa Dates.Day
-            if treq.ctx.dialect.name === :postgresql || treq.ctx.dialect.name === :redshift
+            if ctx.dialect.name === :postgresql || ctx.dialect.name === :redshift
                 return OP(:-, args = [args[1], LIT(val.value)])
-            elseif treq.ctx.dialect.name === :sqlserver
+            elseif ctx.dialect.name === :sqlserver
                 return FUN(:DATEADD, args = [OP(:day), LIT(- val.value), args[1]])
             end
         end
     end
-    FunSQL.translate_default(n, treq)
+    FunSQL.translate_default(n, ctx)
 end
 
 function FunSQL.render(ctx, val::Bool)
