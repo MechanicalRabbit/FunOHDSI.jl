@@ -1,7 +1,7 @@
 #!/usr/bin/env julia
 
-using FunOHDSI: Source
-using FunOHDSI.Legacy: unpack!, translate, cohort_to_sql, initialize_java
+using FunOHDSI: Source, initialize_java, cohort_to_sql
+using OHDSICohortExpressions: unpack!, translate
 using FunSQL: render, As, Select, Get, From, Fun, Join, Where, Group, Agg
 using JSON
 using Pkg.Artifacts
@@ -65,13 +65,36 @@ function benchmark(file)
     else
         execute_with_timeout(conn, "SELECT 1", timeout = timeout)
     end
-    success = true
-    elapsed = @elapsed try
-        execute_with_timeout(conn, sql, timeout = timeout)
-    catch err
-        showerror(stdout, err)
-        println()
+    if tries > 1
         success = false
+        best_try = 0
+        elapsed = 0.0
+        for t in 1:tries
+            try_success = true
+            try_elapsed = @elapsed try
+                execute_with_timeout(conn, sql, timeout = timeout)
+            catch err
+                showerror(stdout, err)
+                println()
+                try_success = false
+            end
+            println("Try $t: $try_elapsed")
+            success = success || try_success
+            if best_try == 0 || try_elapsed < elapsed
+                best_try = t
+                elapsed = try_elapsed
+            end
+        end
+        println("Best try: $best_try")
+    else
+        success = true
+        elapsed = @elapsed try
+            execute_with_timeout(conn, sql, timeout = timeout)
+        catch err
+            showerror(stdout, err)
+            println()
+            success = false
+        end
     end
     println("Time elapsed: $elapsed")
     if success
@@ -98,6 +121,7 @@ cohort_pattern = nothing
 show_expr = false
 show_sql = false
 timeout = 1800
+tries = 1
 output = nothing
 args = copy(ARGS)
 while !isempty(args)
@@ -127,6 +151,11 @@ while !isempty(args)
         global timeout = parse(Int, arg[3:end])
     elseif startswith(arg ,"--timeout=")
         global timeout = parse(Int, arg[11:end])
+    elseif arg == "--tries"
+        !isempty(args) || error("missing value for $arg")
+        global tries = parse(Int, popfirst!(args))
+    elseif startswith(arg ,"--tries=")
+        global tries = parse(Int, arg[9:end])
     else
         error("invalid argument $arg")
     end
