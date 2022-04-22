@@ -11,6 +11,8 @@ using Tables
 using CSV
 
 const SQL_ATTR_QUERY_TIMEOUT = 0
+const COHORT_PATH = joinpath(artifact"PhenotypeLibrary", "PhenotypeLibrary-0.0.1/inst")
+
 function setquerytimeout(h, sec)
     ret = ODBC.API.SQLSetStmtAttr(ODBC.API.getptr(h),
                                   SQL_ATTR_QUERY_TIMEOUT,
@@ -70,16 +72,18 @@ function benchmark(file)
         best_try = 0
         elapsed = 0.0
         for t in 1:tries
-            try_success = true
             try_elapsed = @elapsed try
                 execute_with_timeout(conn, sql, timeout = timeout)
             catch err
                 showerror(stdout, err)
                 println()
-                try_success = false
+                success = false
+                best_try = t
+                elapsed = 1000timeout
+                break
             end
             println("Try $t: $try_elapsed")
-            success = success || try_success
+            success = true
             if best_try == 0 || try_elapsed < elapsed
                 best_try = t
                 elapsed = try_elapsed
@@ -166,7 +170,7 @@ if use_circe
 end
 
 lines = (cohort = String[], elapsed = Float64[], success = Int[], count = Int[], length = Int[])
-for dir in readdir(joinpath(artifact"PhenotypeLibrary", "PhenotypeLibrary-0.0.1/inst"), join = true)
+for dir in readdir(COHORT_PATH, join = true)
     isdir(dir) || continue
     for file in readdir(dir, join = true)
         cohort_pattern == nothing || contains(file, cohort_pattern) || continue
