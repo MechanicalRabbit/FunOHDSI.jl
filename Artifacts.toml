@@ -5,6 +5,14 @@ git-tree-sha1 = "fc18c2e104767d599e3785abca456bd739bfa381"
     url = "https://github.com/OHDSI/circe-be/archive/refs/tags/v1.9.4.tar.gz"
     sha256 = "6af9dc67e7e1885019ca31a94a1f0cecc8c043177cfd715859fd4720b9f0f44b"
 
+[circe-be-jars]
+
+git-tree-sha1 = "aaf2840abada84635a91ebc33f4f2e748ea3b982"
+
+    [[circe-be-jars.download]]
+    url = "https://github.com/MechanicalRabbit/circe-be/releases/download/v1.9.5-SNAPSHOT/circe-be-v1.9.5-SNAPSHOT.tar.gz"
+    sha256 = "e55b114e09bb9f424f4146f8c9439be07fa31ddd36595e60913302d4adafecd9"
+
 [CirceR]
 git-tree-sha1 = "e9a6a895b2057454728c47b8333fe627808d8b39"
 
