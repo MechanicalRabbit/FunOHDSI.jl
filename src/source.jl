@@ -1,7 +1,7 @@
 
 const POSTGRESQL_DRIVER = "/usr/lib/x86_64-linux-gnu/odbc/psqlodbcw.so"
 const REDSHIFT_DRIVER = "/opt/amazon/redshiftodbc/lib/64/libamazonredshiftodbc64.so"
-const SQLSERVER_DRIVER = "/usr/lib/libmsodbcsql-17.so"
+const SQLSERVER_DRIVER = "/usr/lib/libmsodbcsql-18.so"
 
 function DSN(;
              dialect,

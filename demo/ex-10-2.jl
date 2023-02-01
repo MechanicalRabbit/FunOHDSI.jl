@@ -9,49 +9,12 @@
 #   Visit”, respectively).
 
 using FunSQL:
-    FunSQL, @dissect, Agg, As, Bind, Define, From, FUN, Fun, FunctionNode, Get,
-    Group, Join, LeftJoin, LIT, OP, Select, SQLClause, SQLTable, Partition,
-    Var, Where, render
+    FunSQL, Agg, As, Bind, Define, From, Fun, Get, Group, Join, LeftJoin,
+    Select, SQLClause, SQLTable, Partition, Var, Where, render
 using ODBC
 using DataFrames
 using Dates
 using FunOHDSI: Source
-
-function FunSQL.translate(::Val{:+}, n::FunctionNode, ctx)
-    args = FunSQL.translate(n.args, ctx)
-    if length(args) == 2 && FunSQL.@dissect args[2] LIT(val = val)
-        if val isa Dates.Day
-            if ctx.dialect.name === :postgresql || ctx.dialect.name === :redshift
-                return OP(:+, args = [args[1], LIT(val.value)])
-            elseif ctx.dialect.name === :sqlserver
-                return FUN(:DATEADD, args = [OP(:day), LIT(val.value), args[1]])
-            end
-        end
-    end
-    FunSQL.translate_default(n, ctx)
-end
-
-function FunSQL.translate(::Val{:-}, n::FunctionNode, ctx)
-    args = FunSQL.translate(n.args, ctx)
-    if length(args) == 2 && FunSQL.@dissect args[2] LIT(val = val)
-        if val isa Dates.Day
-            if ctx.dialect.name === :postgresql || ctx.dialect.name === :redshift
-                return OP(:-, args = [args[1], LIT(val.value)])
-            elseif ctx.dialect.name === :sqlserver
-                return FUN(:DATEADD, args = [OP(:day), LIT(- val.value), args[1]])
-            end
-        end
-    end
-    FunSQL.translate_default(n, ctx)
-end
-
-function FunSQL.render(ctx, val::Bool)
-    if ctx.dialect.name === :sqlserver
-        print(ctx, val ? 1 : 0)
-    else
-        print(ctx, val ? "TRUE" : "FALSE")
-    end
-end
 
 const source = Source()
 const dialect = source.dialect
@@ -119,6 +82,14 @@ FromConcept(ic, ec) =
              Get.concept_id .== Get.excluded.concept_id) |>
     Where(Fun."is null"(Get.excluded.concept_id))
 
+function DateAdd(date, days)
+    if dialect === :sqlserver
+        Fun."DATEADD(day, ?, ?)"(days, date)
+    else
+        date .+ days
+    end
+end
+
 Infarction =
     FromConcept(myocardial_infarction, exclude = old_myocardial_infarction)
 
@@ -133,7 +104,7 @@ InfarctionCondition =
     Join(:concept => Infarction,
          Get.condition_concept_id .== Get.concept.concept_id) |>
     Define(:start_date => Get.condition_start_date,
-           :end_date => Get.condition_start_date .+ Day(7))
+           :end_date => DateAdd(Get.condition_start_date, 7))
 
 InfarctionCondition |>
 Select(Get.person_id, Get.start_date, Get.end_date) |>
@@ -145,7 +116,7 @@ InfarctionCondition′ =
     Where(Fun.in(Get.condition_concept_id,
                  Infarction |> Select(Get.concept_id))) |>
     Define(:start_date => Get.condition_start_date,
-           :end_date => Get.condition_start_date .+ 7)
+           :end_date => DateAdd(Get.condition_start_date, 7))
 
 InfarctionCondition′ |>
 Select(Get.person_id, Get.start_date, Get.end_date) |>
@@ -237,7 +208,7 @@ run
 
 if dialect === :postgresql || dialect === :sqlserver
     CollapseIntervals(gap) =
-        Define(:end_date => Get.end_date .+ gap) |>
+        Define(:end_date => DateAdd(Get.end_date, gap)) |>
         Partition(Get.person_id, order_by = [Get.start_date]) |>
         Define(:boundary => Agg.lag(Get.end_date)) |>
         Define(:bump => Fun.case(Get.start_date .<= Get.boundary, 0, 1)) |>
@@ -245,12 +216,12 @@ if dialect === :postgresql || dialect === :sqlserver
         Define(:group => Agg.sum(Get.bump)) |>
         Group(Get.person_id, Get.group) |>
         Define(:start_date => Agg.min(Get.start_date),
-               :end_date => Agg.max(Get.end_date) .- gap)
+               :end_date => DateAdd(Agg.max(Get.end_date), -gap))
 end
 
 if dialect === :redshift
     CollapseIntervals(gap) =
-        Define(:end_date => Get.end_date .+ gap) |>
+        Define(:end_date => DateAdd(Get.end_date, gap)) |>
         Partition(Get.person_id, order_by = [Get.start_date]) |>
         Define(:boundary => Agg.lag(Get.end_date)) |>
         Define(:bump => Fun.case(Get.start_date .<= Get.boundary, 0, 1)) |>
@@ -258,12 +229,12 @@ if dialect === :redshift
         Define(:group => Agg.sum(Get.bump, frame = :rows)) |>
         Group(Get.person_id, Get.group) |>
         Define(:start_date => Agg.min(Get.start_date),
-               :end_date => Agg.max(Get.end_date) .- gap)
+               :end_date => DateAdd(Agg.max(Get.end_date), -gap))
 end
 
 InfarctionCohort =
     InfarctionConditionDuringAcuteVisit |>
-    CollapseIntervals(Day(180)) |>
+    CollapseIntervals(180) |>
     Select(Get.person_id, Get.start_date, Get.end_date)
 
 InfarctionCohort |>
