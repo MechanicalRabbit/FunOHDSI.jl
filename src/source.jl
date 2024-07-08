@@ -1,4 +1,6 @@
 
+using FunSQL: SQLTable, SQLCatalog
+
 const POSTGRESQL_DRIVER = "/usr/lib/x86_64-linux-gnu/odbc/psqlodbcw.so"
 const REDSHIFT_DRIVER = "/opt/amazon/redshiftodbc/lib/64/libamazonredshiftodbc64.so"
 const SQLSERVER_DRIVER = "/usr/lib/libmsodbcsql-18.so"
@@ -40,6 +42,7 @@ struct Source
     dialect::Symbol
     dsn::String
     model::Model
+    catalog::SQLCatalog
 
     function Source(; dialect = nothing, dsn = nothing, model = nothing)
         if dialect === nothing
@@ -58,7 +61,14 @@ struct Source
             end
             model = Model(; model...)
         end
-        new(dialect, dsn, model)
+        tables = Dict{Symbol, SQLTable}()
+        for name in fieldnames(Model)
+            tbl = getproperty(model, name)
+            tbl !== nothing || continue
+            tables[name] = tbl
+        end
+        catalog = SQLCatalog(tables = tables, dialect = dialect)
+        new(dialect, dsn, model, catalog)
     end
 end
 
